@@ -60,7 +60,6 @@ Duration: [X]
 - [Required knowledge/skills]
 - [Other requirements]
 
-<!-- ------------------------ -->
 ## Setup
 Duration: [X]
 
@@ -79,7 +78,7 @@ Duration: [X]
 > - [Critical note 1]
 > - [Critical note 2]
 
-<!-- ------------------------ -->
+
 ## [Main Content Section 1]
 Duration: [X]
 
@@ -95,13 +94,13 @@ Duration: [X]
 
 [Include screenshots/diagrams where helpful]
 
-<!-- ------------------------ -->
+
 ## [Main Content Section 2]
 Duration: [X]
 
 [Repeat structure as needed for additional main sections]
 
-<!-- ------------------------ -->
+
 ## Conclusion and Resources
 Duration: [X]
 
@@ -195,6 +194,7 @@ if st.session_state.blog_content is not None:
     user_prompt = f"""
     Create a technical tutorial by filling out the article template ({quickstart_template})
     by integrating content and code from the attached blog content ({st.session_state.blog_content}). 
+    
     In filling out the article template, please replace content specified by the brackets [].
             
     Writing approach:
@@ -202,6 +202,10 @@ if st.session_state.blog_content is not None:
     - Active voice
     - Direct reader address
     - Concise introduction focusing on value proposition
+
+    Notes:
+    - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
+    - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
             
     Deliver the final output directly without meta-commentary.
     """
