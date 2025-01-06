@@ -1,0 +1,9 @@
+streamlit
+anthropic
+assemblyai
+markdown
+nbconvert
+nbformat
+openai
+requests
+yt-dlp
