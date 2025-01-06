@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import os
+import os 
 import json
 import anthropic
 import zipfile
@@ -143,7 +143,7 @@ def extract_title(content):
     return 'tutorial'  # Default title if extraction fails
 
 def create_zip():
-    """Creates a zip file with the markdown file inside a folder."""
+    """Creates a zip file with the markdown file and assets folder inside a tutorial folder."""
     zip_buffer = io.BytesIO()
     
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -151,11 +151,15 @@ def create_zip():
             # Extract title for folder and file names
             title = extract_title(st.session_state.generated_blog)
             
-            # Create the file path with folder structure
+            # Create the main markdown file path
             file_path = f"{title}/{title}.md"
             
-            # Add the file to the zip
+            # Add the markdown file to the zip
             zip_file.writestr(file_path, st.session_state.generated_blog)
+            
+            # Create an empty assets folder by adding a placeholder .gitkeep file
+            assets_path = f"{title}/assets/.gitkeep"
+            zip_file.writestr(assets_path, "")
     
     zip_buffer.seek(0)
     return zip_buffer.getvalue()
@@ -316,7 +320,7 @@ if st.session_state.blog_content is not None:
             file_name=f"{title}.zip",
             mime="application/zip",
             key='download_button',
-            help="Download the tutorial as a markdown file in a folder",
+            help="Download the Quick Start tutorial with assets folder",
             on_click=handle_download
         )
     
