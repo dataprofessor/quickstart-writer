@@ -271,14 +271,14 @@ def handle_download():
 
 # Set up the Streamlit page
 st.set_page_config(
-    page_title="Technical Blog Writer",
-    page_icon="✍️",
+    page_title="Quick Start Writer",
+    page_icon="⏩",
     layout="wide"
 )
 
 with st.sidebar:
     # Add title and description
-    st.title("✍️ Technical Blog Writer")
+    st.title("⏩ Quick Start Writer")
     st.warning(
         "Transform your Jupyter notebooks into polished technical blog posts. "
         "Add context from YouTube videos to enrich your content."
