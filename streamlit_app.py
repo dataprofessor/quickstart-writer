@@ -3,8 +3,6 @@ import requests
 import os
 import json
 import anthropic
-import zipfile
-import io
 import time
 from openai import OpenAI
 
@@ -13,8 +11,6 @@ if 'blog_content' not in st.session_state:
     st.session_state.blog_content = None
 if 'generated_blog' not in st.session_state:
     st.session_state.generated_blog = None
-if 'zip_data' not in st.session_state:
-    st.session_state.zip_data = None
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -123,27 +119,10 @@ Duration: [X]
 - [Blog/article link 2]
 '''
 
-def create_zip():
-    """Creates markdown file and returns zipped bytes."""
-    zip_buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        if 'generated_blog' in st.session_state:
-            zip_file.writestr('tutorial.md', st.session_state.generated_blog)
-    
-    zip_buffer.seek(0)
-    return zip_buffer.getvalue()
-
-def handle_download():
-    """Callback function to handle the download button click."""
-    st.session_state.zip_data = create_zip()
-    reset_callback()
-
 def reset_callback():
     """Reset all application state variables"""
     st.session_state.blog_content = None
     st.session_state.generated_blog = None
-    st.session_state.zip_data = None
 
 # Set up the Streamlit page
 st.set_page_config(
@@ -266,20 +245,15 @@ if st.session_state.blog_content is not None:
         
         # Display the tutorial content
         with st.expander('See generated tutorial'):
-            st.markdown(st.session_state.generated_blog)
-                        
-        with st.expander("Generated Tutorial (Markdown)"):
             st.code(st.session_state.generated_blog, language='markdown')
 
-        # Download button for zip file
+        # Direct markdown file download button
         st.download_button(
-            label="📥 Download ZIP file",
-            data=st.session_state.zip_data if st.session_state.zip_data else create_zip(),
-            file_name="tutorial.zip",
-            mime="application/zip",
-            key='download_button',
-            help="Download the tutorial as markdown file in a zip",
-            on_click=handle_download
+            label="📥 Download Markdown",
+            data=st.session_state.generated_blog,
+            file_name="tutorial.md",
+            mime="text/markdown",
+            help="Download the tutorial as a markdown file"
         )
     
     except Exception as e:
