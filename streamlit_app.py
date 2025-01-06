@@ -241,6 +241,9 @@ if st.session_state.blog_content is not None:
     - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
     - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
       to the 'Articles:' segment of the Conclusion section.
+    - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
+      to the 'Documention' segment of the Conclusion section.
+    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
             
     Deliver the final output directly without meta-commentary.
     """
