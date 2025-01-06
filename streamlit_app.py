@@ -230,8 +230,17 @@ if st.session_state.blog_content is not None:
     - Concise introduction focusing on value proposition
 
     Notes:
+    - Please have the article title start with "How to"
     - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
+      however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
+    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
+      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
+      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
+      like Happy Coding please make sure to have it as a normal text.
+    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
+    - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
+      to the 'Articles:' segment of the Conclusion section.
             
     Deliver the final output directly without meta-commentary.
     """
