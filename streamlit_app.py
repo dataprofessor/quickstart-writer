@@ -247,9 +247,13 @@ if st.session_state.blog_content is not None:
         time.sleep(0.5)
         progress_bar.empty()
         
-        # Display the tutorial content
-        with st.expander('See generated tutorial'):
-            st.code(st.session_state.generated_blog, language='markdown')
+        # Display the blog content
+        with st.expander('See generated blog'):
+            st.session_state.generated_blog
+                            
+        st.write("**Markdown**")
+        with st.expander("Generated Blog (Markdown)"):
+            st.code(st.session_state.generated_blog, wrap_lines=True)
 
         # Direct markdown file download button
         st.download_button(
