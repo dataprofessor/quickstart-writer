@@ -1,4 +1,4 @@
-# ✍️ Technical Blog Writer
+# ✍️ Quick Start Writer
 
 Transform your Jupyter notebooks into polished technical blog posts. Add context from YouTube videos to enrich your content.
 
