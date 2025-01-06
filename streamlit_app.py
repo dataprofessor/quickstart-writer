@@ -147,13 +147,13 @@ def reset_callback():
 
 # Set up the Streamlit page
 st.set_page_config(
-    page_title="Quick Start Generator",
+    page_title="Write Quick Start",
     page_icon="⏩",
     layout="wide"
 )
 
 with st.sidebar:
-    st.title("⏩ Quick Start Generator")
+    st.title("⏩ Write Quick Start")
     st.warning(
         "Transform your technical blog posts into Quick Start tutorials."
     )
