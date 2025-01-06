@@ -3,7 +3,10 @@ import requests
 import os
 import json
 import anthropic
+import zipfile
+import io
 import time
+import re
 from openai import OpenAI
 
 # Initialize session state variables
@@ -11,6 +14,8 @@ if 'blog_content' not in st.session_state:
     st.session_state.blog_content = None
 if 'generated_blog' not in st.session_state:
     st.session_state.generated_blog = None
+if 'zip_data' not in st.session_state:
+    st.session_state.zip_data = None
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -119,10 +124,49 @@ Duration: [X]
 - [Blog/article link 2]
 '''
 
+def extract_title(content):
+    """Extract the article title from the generated content."""
+    try:
+        # Look for the title after the header section
+        match = re.search(r'# (.+?)(?=\n|\r)', content)
+        if match:
+            title = match.group(1).strip()
+            # Remove any special characters and replace spaces with underscores
+            clean_title = re.sub(r'[^\w\s-]', '', title)
+            clean_title = clean_title.replace(' ', '_').lower()
+            return clean_title
+    except Exception:
+        pass
+    return 'tutorial'  # Default title if extraction fails
+
+def create_zip():
+    """Creates a zip file with the markdown file inside a folder."""
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        if 'generated_blog' in st.session_state:
+            # Extract title for folder and file names
+            title = extract_title(st.session_state.generated_blog)
+            
+            # Create the file path with folder structure
+            file_path = f"{title}/{title}.md"
+            
+            # Add the file to the zip
+            zip_file.writestr(file_path, st.session_state.generated_blog)
+    
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
+
+def handle_download():
+    """Callback function to handle the download button click."""
+    st.session_state.zip_data = create_zip()
+    reset_callback()
+
 def reset_callback():
     """Reset all application state variables"""
     st.session_state.blog_content = None
     st.session_state.generated_blog = None
+    st.session_state.zip_data = None
 
 # Set up the Streamlit page
 st.set_page_config(
@@ -183,16 +227,8 @@ if st.session_state.blog_content is not None:
     - Concise introduction focusing on value proposition
 
     Notes:
-    - Please have the article title start with "How to"
     - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
-      however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
-    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
-      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
-      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
-      like Happy Coding please make sure to have it as a normal text.
-    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
-
             
     Deliver the final output directly without meta-commentary.
     """
@@ -251,20 +287,22 @@ if st.session_state.blog_content is not None:
         time.sleep(0.5)
         progress_bar.empty()
         
-        # Display the blog content
-        with st.expander('See generated blog'):
-            st.session_state.generated_blog
-                            
-        with st.expander("Generated Blog (Markdown)"):
-            st.code(st.session_state.generated_blog, wrap_lines=True)
+        # Display the tutorial content
+        with st.expander('See generated tutorial'):
+            st.code(st.session_state.generated_blog, language='markdown')
 
-        # Direct markdown file download button
+        # Get the title for the download filename
+        title = extract_title(st.session_state.generated_blog)
+        
+        # Download button for zip file
         st.download_button(
-            label="📥 Download Markdown",
-            data=st.session_state.generated_blog,
-            file_name="tutorial.md",
-            mime="text/markdown",
-            help="Download the tutorial as a markdown file"
+            label="📥 Download ZIP",
+            data=st.session_state.zip_data if st.session_state.zip_data else create_zip(),
+            file_name=f"{title}.zip",
+            mime="application/zip",
+            key='download_button',
+            help="Download the tutorial as a markdown file in a folder",
+            on_click=handle_download
         )
     
     except Exception as e:
