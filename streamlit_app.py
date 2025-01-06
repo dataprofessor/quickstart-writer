@@ -186,9 +186,11 @@ if st.session_state.blog_content is not None:
     - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
     - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
-      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial.
+      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
+      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
+      like Happy Coding please make sure to have it be normal text.
     - Make sure that the generated output don't have enclosing ``` symbols.
-    - For any closing remarks like Happy Coding please make sure to have it be normal text 
+
             
     Deliver the final output directly without meta-commentary.
     """
