@@ -188,6 +188,7 @@ if st.session_state.blog_content is not None:
     - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
       You've successfully' followed by 1-2 sentence summary of what was built in this tutorial.
     - Make sure that the generated output don't have enclosing ``` symbols.
+    - For any closing remarks like Happy Coding please make sure to have it be normal text 
             
     Deliver the final output directly without meta-commentary.
     """
