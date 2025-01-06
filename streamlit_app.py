@@ -36,7 +36,7 @@ feedback link: https://github.com/Snowflake-Labs/sfguides/issues
 tags: [Comma-separated list of relevant technologies and concepts]
 authors: [Your Name]
 
-
+<!-- ------------------------ -->
 # [Article Title]
 
 ## Overview
@@ -61,6 +61,7 @@ Duration: [X]
 - [Required knowledge/skills]
 - [Other requirements]
 
+<!-- ------------------------ -->
 ## Setup
 Duration: [X]
 
@@ -79,7 +80,7 @@ Duration: [X]
 > - [Critical note 1]
 > - [Critical note 2]
 
-
+<!-- ------------------------ -->
 ## [Main Content Section 1]
 Duration: [X]
 
@@ -95,7 +96,7 @@ Duration: [X]
 
 [Include screenshots/diagrams where helpful]
 
-
+<!-- ------------------------ -->
 ## [Main Content Section 2]
 Duration: [X]
 
@@ -111,15 +112,17 @@ Duration: [X]
 - [Key takeaway 3]
 
 ### Related Resources
+
+Articles:
 - [Resource link 1 with description]
 - [Resource link 2 with description]
 - [Resource link 3 with description]
 
-### Documentation
+Documentation:
 - [Relevant documentation link 1]
 - [Relevant documentation link 2]
 
-### Additional Reading
+Additional Reading:
 - [Blog/article link 1]
 - [Blog/article link 2]
 '''
