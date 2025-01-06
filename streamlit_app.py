@@ -251,7 +251,6 @@ if st.session_state.blog_content is not None:
         with st.expander('See generated blog'):
             st.session_state.generated_blog
                             
-        st.write("**Markdown**")
         with st.expander("Generated Blog (Markdown)"):
             st.code(st.session_state.generated_blog, wrap_lines=True)
 
