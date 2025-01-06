@@ -183,6 +183,7 @@ if st.session_state.blog_content is not None:
     - Concise introduction focusing on value proposition
 
     Notes:
+    - Please have the article title start with "How to"
     - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
       however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
