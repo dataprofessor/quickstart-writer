@@ -35,7 +35,7 @@ feedback link: https://github.com/Snowflake-Labs/sfguides/issues
 tags: [Comma-separated list of relevant technologies and concepts]
 authors: [Your Name]
 
-<!-- ------------------------ -->
+
 # [Article Title]
 
 ## Overview
