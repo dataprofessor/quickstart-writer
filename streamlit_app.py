@@ -178,6 +178,10 @@ def reset_callback():
     st.session_state.zip_data = None
     st.session_state.submitted = False
 
+def submit_callback():
+    """Callback function to handle the submit button click"""
+    st.session_state.submitted = True
+
 # Set up the Streamlit page
 st.set_page_config(
     page_title="Write Quick Start",
@@ -207,11 +211,7 @@ with st.sidebar:
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
 
-def submit_callback():
-    """Callback function to handle the submit button click."""
-    st.session_state.submitted = True
-
-    # Add Submit button in sidebar
+    # Add Submit button with callback in sidebar
     if st.session_state.blog_content:
         st.button(
             "Submit",
