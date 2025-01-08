@@ -16,6 +16,8 @@ if 'generated_blog' not in st.session_state:
     st.session_state.generated_blog = None
 if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
+if 'submitted' not in st.session_state:
+    st.session_state.submitted = False
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -174,6 +176,7 @@ def reset_callback():
     st.session_state.blog_content = None
     st.session_state.generated_blog = None
     st.session_state.zip_data = None
+    st.session_state.submitted = False
 
 # Set up the Streamlit page
 st.set_page_config(
@@ -204,7 +207,19 @@ with st.sidebar:
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
 
+def submit_callback():
+    """Callback function to handle the submit button click."""
+    st.session_state.submitted = True
+
+    # Add Submit button in sidebar
     if st.session_state.blog_content:
+        st.button(
+            "Submit",
+            type="primary",
+            on_click=submit_callback,
+            use_container_width=True
+        )
+        
         st.button(
             "Reset All",
             type="primary",
@@ -215,7 +230,8 @@ with st.sidebar:
 if not uploaded_file:
     st.info("Please upload your blog content file in the sidebar!", icon="👈")
 
-if st.session_state.blog_content is not None:
+# Only generate content if submitted
+if st.session_state.blog_content is not None and st.session_state.submitted:
     system_prompt = """
     You are an experienced technical writer specializing in creating clear, 
     structured tutorials from existing technical content.
