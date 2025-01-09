@@ -275,6 +275,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     
     In filling out the article template, please replace content specified by the brackets [].
     {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
+    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
             
     Writing approach:
     - Professional yet accessible tone
