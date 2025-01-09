@@ -18,6 +18,10 @@ if 'zip_data' not in st.session_state:
     st.session_state.zip_data = None
 if 'submitted' not in st.session_state:
     st.session_state.submitted = False
+if 'custom_title' not in st.session_state:
+    st.session_state.custom_title = None
+if 'author_name' not in st.session_state:
+    st.session_state.author_name = None
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -130,7 +134,13 @@ Additional Reading:
 '''
 
 def extract_title(content):
-    """Extract the article title from the generated content."""
+    """Extract the article title from the generated content or use custom title."""
+    if st.session_state.custom_title:
+        # Clean up custom title
+        clean_title = re.sub(r'[^\w\s-]', '', st.session_state.custom_title)
+        clean_title = clean_title.replace(' ', '_').lower()
+        return clean_title
+        
     try:
         # Look for the title after the header section
         match = re.search(r'# (.+?)(?=\n|\r)', content)
@@ -177,6 +187,8 @@ def reset_callback():
     st.session_state.generated_blog = None
     st.session_state.zip_data = None
     st.session_state.submitted = False
+    st.session_state.custom_title = None
+    st.session_state.author_name = None
 
 def submit_callback():
     """Callback function to handle the submit button click"""
@@ -210,6 +222,24 @@ with st.sidebar:
         "Select a model",
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
+    
+    # Add separate checkboxes for title and author
+    use_custom_title = st.checkbox('Specify Quickstart Title')
+    if use_custom_title:
+        st.session_state.custom_title = st.text_input(
+            'Enter Quickstart Title',
+            value=st.session_state.custom_title if st.session_state.custom_title else '',
+            help="This will be used to name the output folder and ZIP file"
+        )
+    
+    use_custom_author = st.checkbox('Specify Author Name')
+    if use_custom_author:
+        st.session_state.author_name = st.text_input(
+            'Enter Author Name',
+            value=st.session_state.author_name if st.session_state.author_name else '',
+            help="This will be used in the Author field of the Quickstart template"
+        )
+
 
     # Add Submit button - disabled if no blog content
     st.button(
@@ -225,7 +255,7 @@ with st.sidebar:
         "Reset All",
         type="primary",
         on_click=reset_callback,
-        disabled=not st.session_state.submitted,  # Only enabled after submission
+        disabled=not st.session_state.submitted,
         use_container_width=True
     )
 
@@ -240,10 +270,11 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     """
 
     user_prompt = f"""
-    Create a technical tutorial by filling out the article template ({quickstart_template})
-    by integrating content and code from the attached blog content ({st.session_state.blog_content}). 
+    Create a technical tutorial by filling out the article template {quickstart_template}
+    by integrating content and code from the attached blog content {st.session_state.blog_content}. 
     
     In filling out the article template, please replace content specified by the brackets [].
+    {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
             
     Writing approach:
     - Professional yet accessible tone
