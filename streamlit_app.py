@@ -211,21 +211,22 @@ with st.sidebar:
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
 
-    # Add Submit button with callback in sidebar
-    if st.session_state.blog_content:
-        st.button(
-            "Submit",
-            type="primary",
-            on_click=submit_callback,
-            use_container_width=True
-        )
-        
-        st.button(
-            "Reset All",
-            type="primary",
-            on_click=reset_callback,
-            use_container_width=True
-        )
+    # Add Submit and Reset buttons in sidebar - disabled if no blog content
+    st.button(
+        "Submit",
+        type="primary",
+        on_click=submit_callback,
+        disabled=st.session_state.blog_content is None,
+        use_container_width=True
+    )
+    
+    st.button(
+        "Reset All",
+        type="primary",
+        on_click=reset_callback,
+        disabled=st.session_state.blog_content is None,
+        use_container_width=True
+    )
 
 if not uploaded_file:
     st.info("Please upload your blog content file in the sidebar!", icon="👈")
