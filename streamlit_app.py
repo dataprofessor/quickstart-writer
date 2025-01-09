@@ -34,7 +34,7 @@ if 'ANTHROPIC_API_KEY' not in st.secrets:
 # Template for the quickstart guide
 quickstart_template = '''
 author: [Your Name]
-id: [unique_identifier_with_underscores]
+id: [unique-identifier-with-dash]
 summary: [One to two sentences describing what this guide covers]
 categories: [comma-separated list: e.g., featured, getting-started, data-engineering]
 environments: web
