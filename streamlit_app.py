@@ -211,7 +211,7 @@ with st.sidebar:
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
 
-    # Add Submit and Reset buttons in sidebar - disabled if no blog content
+    # Add Submit button - disabled if no blog content
     st.button(
         "Submit",
         type="primary",
@@ -220,11 +220,12 @@ with st.sidebar:
         use_container_width=True
     )
     
+    # Add Reset button - disabled if no generated content
     st.button(
         "Reset All",
         type="primary",
         on_click=reset_callback,
-        disabled=st.session_state.blog_content is None,
+        disabled=st.session_state.generated_blog is None,
         use_container_width=True
     )
 
