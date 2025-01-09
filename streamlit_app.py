@@ -220,12 +220,12 @@ with st.sidebar:
         use_container_width=True
     )
     
-    # Add Reset button - disabled if no generated content
+    # Add Reset button - disabled if content hasn't been generated yet
     st.button(
         "Reset All",
         type="primary",
         on_click=reset_callback,
-        disabled=st.session_state.generated_blog is None,
+        disabled=not st.session_state.submitted,  # Only enabled after submission
         use_container_width=True
     )
 
