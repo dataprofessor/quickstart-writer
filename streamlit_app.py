@@ -33,20 +33,19 @@ if 'ANTHROPIC_API_KEY' not in st.secrets:
 
 # Template for the quickstart guide
 quickstart_template = '''
+author: [Your Name]
 id: [unique_identifier_with_underscores]
 summary: [One to two sentences describing what this guide covers]
-categories: [comma-separated list: e.g., featured,getting-started,data-engineering]
+categories: [comma-separated list: e.g., featured, getting-started, data-engineering]
 environments: web
 status: Published
 feedback link: https://github.com/Snowflake-Labs/sfguides/issues
 tags: [Comma-separated list of relevant technologies and concepts]
-author: [Your Name]
 
-<!-- ------------------------ -->
 # [Article Title]
-
+<!-- ------------------------ -->
 ## Overview
-Duration: [X]
+Duration: [Minutes as an integer only]
 
 [One to two paragraphs introducing the topic and what will be accomplished]
 
