@@ -284,7 +284,11 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
 
     Notes:
     - Please have the article title start with gerunds (Building, Performing, etc.)
-    - In the Resources section, if you don't have the URL, please just replace it with '#-REPLACE-WITH-URL'
+    - If mentioning about installing Python packages. Please say something like the following but rephrase:
+      Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
+      such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
+      Packages dropdown on the top right to add additional packages to your notebook.
+    - In the Resources section, if you don't have the URL, please don't mention about it
       however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
     - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
