@@ -7,6 +7,9 @@ import zipfile
 import io
 import time
 import re
+import nbformat
+from nbconvert import MarkdownExporter
+from urllib.parse import urlparse
 from openai import OpenAI
 
 # Initialize session state variables
@@ -22,6 +25,12 @@ if 'custom_title' not in st.session_state:
     st.session_state.custom_title = None
 if 'author_name' not in st.session_state:
     st.session_state.author_name = None
+if 'github_url' not in st.session_state:
+    st.session_state.github_url = ""
+if 'show_error' not in st.session_state:
+    st.session_state.show_error = False
+if 'error_message' not in st.session_state:
+    st.session_state.error_message = ""
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -132,6 +141,72 @@ Additional Reading:
 - [Blog/article link 2]
 '''
 
+# GitHub URL handling functions
+def is_valid_github_url(url):
+    """Validate GitHub URL for Jupyter notebook or Markdown file"""
+    if not url:
+        return False
+    
+    try:
+        parsed = urlparse(url)
+        path_parts = parsed.path.split('/')
+        return (
+            parsed.netloc == "github.com" and
+            len(path_parts) >= 3 and
+            ("blob" in parsed.path or "tree" in parsed.path) and
+            (path_parts[-1].endswith('.ipynb') or path_parts[-1].endswith('.md'))
+        )
+    except:
+        return False
+
+def get_file_content(github_url):
+    """Fetch content from GitHub"""
+    try:
+        parsed = urlparse(github_url)
+        path_parts = parsed.path.split('/')
+        
+        if 'blob' in path_parts:
+            blob_index = path_parts.index('blob')
+            path_parts.pop(blob_index)
+            path_parts.insert(blob_index, 'refs/heads')
+        elif 'tree' in path_parts:
+            tree_index = path_parts.index('tree')
+            path_parts.pop(tree_index)
+            path_parts.insert(tree_index, 'refs/heads')
+        
+        raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
+        response = requests.get(raw_url)
+        response.raise_for_status()
+        
+        filename = os.path.basename(raw_url)
+        if filename.endswith('.ipynb'):
+            notebook_json = json.loads(response.content)
+            markdown_exporter = MarkdownExporter()
+            content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
+            return content
+        else:
+            return response.content.decode('utf-8')
+        
+    except Exception as e:
+        st.session_state.error_message = f"Error: {str(e)}"
+        st.session_state.show_error = True
+        return None
+
+def on_url_change():
+    """Handle GitHub URL changes"""
+    st.session_state.show_error = False
+    st.session_state.error_message = ""
+    st.session_state.blog_content = None
+    
+    if st.session_state.github_url:
+        if is_valid_github_url(st.session_state.github_url):
+            content = get_file_content(st.session_state.github_url)
+            if content:
+                st.session_state.blog_content = content
+        else:
+            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file."
+            st.session_state.show_error = True
+
 def extract_title(content):
     """Extract the article title from the generated content or use custom title."""
     if st.session_state.custom_title:
@@ -188,6 +263,9 @@ def reset_callback():
     st.session_state.submitted = False
     st.session_state.custom_title = None
     st.session_state.author_name = None
+    st.session_state.github_url = ""
+    st.session_state.show_error = False
+    st.session_state.error_message = ""
 
 def submit_callback():
     """Callback function to handle the submit button click"""
@@ -203,19 +281,38 @@ st.set_page_config(
 with st.sidebar:
     st.title("⏩ Write Quickstarts")
     st.warning(
-        "Transform your technical blog posts into Quick Start tutorials."
+        "Transform your technical content into Quick Start tutorials."
     )
     
-    # File uploader for blog content
-    uploaded_file = st.file_uploader(
-        "Upload your blog content (markdown or text file)",
-        type=['md', 'txt'],
-        help="Upload a file containing your blog content"
+    # Input method selection
+    input_method = st.radio(
+        "Choose input method",
+        ["Upload File", "GitHub URL"],
+        help="Select how you want to provide your content"
     )
     
-    if uploaded_file is not None:
-        st.session_state.blog_content = uploaded_file.getvalue().decode('utf-8')
-    
+    if input_method == "Upload File":
+        uploaded_file = st.file_uploader(
+            "Upload your content (markdown or notebook file)",
+            type=['md', 'txt', 'ipynb'],
+            help="Upload a file containing your content"
+        )
+        if uploaded_file is not None:
+            if uploaded_file.name.endswith('.ipynb'):
+                notebook_json = json.loads(uploaded_file.getvalue().decode('utf-8'))
+                markdown_exporter = MarkdownExporter()
+                content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
+                st.session_state.blog_content = content
+            else:
+                st.session_state.blog_content = uploaded_file.getvalue().decode('utf-8')
+    else:
+        github_url = st.text_input(
+            "Enter GitHub URL",
+            key="github_url",
+            on_change=on_url_change,
+            placeholder="https://github.com/username/repo/blob/main/file.{md,ipynb}"
+        )
+
     st.subheader("⚙️ Settings")
     llm_model = st.selectbox(
         "Select a model",
@@ -239,7 +336,6 @@ with st.sidebar:
             help="This will be used in the Author field of the Quickstart template"
         )
 
-
     # Add Submit button - disabled if no blog content
     st.button(
         "Submit",
@@ -258,8 +354,15 @@ with st.sidebar:
         use_container_width=True
     )
 
-if not uploaded_file:
-    st.info("Please upload your blog content file in the sidebar!", icon="👈")
+# Show error message if there is one
+if st.session_state.show_error:
+    st.error(st.session_state.error_message)
+
+if not st.session_state.blog_content:
+    if input_method == "Upload File":
+        st.info("Please upload your content file in the sidebar!", icon="👈")
+    else:
+        st.info("Please enter a GitHub URL in the sidebar!", icon="👈")
 
 # Only generate content if submitted
 if st.session_state.blog_content is not None and st.session_state.submitted:
