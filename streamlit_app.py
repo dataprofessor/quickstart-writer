@@ -195,13 +195,13 @@ def submit_callback():
 
 # Set up the Streamlit page
 st.set_page_config(
-    page_title="Write Quick Start",
+    page_title="Write Quickstarts",
     page_icon="⏩",
     layout="wide"
 )
 
 with st.sidebar:
-    st.title("⏩ Write Quick Start")
+    st.title("⏩ Write Quickstarts")
     st.warning(
         "Transform your technical blog posts into Quick Start tutorials."
     )
