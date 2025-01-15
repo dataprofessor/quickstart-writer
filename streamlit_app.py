@@ -473,6 +473,9 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
       Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
       such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
       Packages dropdown on the top right to add additional packages to your notebook.
+    - Please ensure that there is mention of the following in ## Overview: 
+        ### What You'll Need
+        Access to a [Snowflake account](https://signup.snowflake.com/)
     - In the Resources section, if you don't have the URL, please don't mention about it
       however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
