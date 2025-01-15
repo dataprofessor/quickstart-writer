@@ -11,6 +11,52 @@ import nbformat
 from nbconvert import MarkdownExporter
 from urllib.parse import urlparse
 from openai import OpenAI
+from collections import defaultdict
+
+# Define valid categories at module level
+VALID_CATEGORIES = {
+    'getting-started': {
+        'keywords': ['introduction', 'basics', 'fundamental', 'begin', 'start', 'first', 'new', 'learn', 
+                    'tutorial', 'guide', 'quickstart', 'getting started', 'prerequisites'],
+        'weight': 1.0
+    },
+    'data-engineering': {
+        'keywords': ['etl', 'pipeline', 'data flow', 'integration', 'transformation', 
+                    'data engineering', 'data pipeline', 'data integration', 'snowpark',
+                    'data warehouse', 'schema', 'streaming'],
+        'weight': 1.2
+    },
+    'cybersecurity': {
+        'keywords': ['security', 'mfa', 'multi-factor authentication', 'authentication', 'authorization', 
+                    'compliance', 'encrypt', 'credential', 'audit', 'access control',
+                    'identity', 'privacy'],
+        'weight': 1.2
+    },
+    'audit': {
+        'keywords': ['audit', 'compliance', 'monitor', 'tracking', 'verification',
+                    'validation', 'check', 'review', 'assessment'],
+        'weight': 1.2
+    },
+    'streamlit': {
+        'keywords': ['streamlit', 'st.', 'interactive dashboard', 'web interface',
+                    'streamlit app', 'st.button', 'st.dataframe', 'st.header'],
+        'weight': 1.3
+    },
+    'notebooks': {
+        'keywords': ['notebook', 'jupyter', 'snowflake notebook', 'interactive notebook',
+                    'notebook cell', 'code cell'],
+        'weight': 1.1
+    },
+    'snowflake': {
+        'keywords': ['snowflake', 'snowpark', 'warehouse', 'snowflake native', 
+                    'snowflake integration', 'snowflake table'],
+        'weight': 1.2
+    },
+    'featured': {
+        'keywords': [],
+        'weight': 1.0
+    }
+}
 
 # Initialize session state variables
 if 'blog_content' not in st.session_state:
@@ -31,6 +77,8 @@ if 'show_error' not in st.session_state:
     st.session_state.show_error = False
 if 'error_message' not in st.session_state:
     st.session_state.error_message = ""
+if 'selected_categories' not in st.session_state:
+    st.session_state.selected_categories = None
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -39,6 +87,40 @@ if 'OPENAI_API_KEY' not in st.secrets:
 if 'ANTHROPIC_API_KEY' not in st.secrets:
     st.error("Please set your Anthropic API key in Streamlit secrets as ANTHROPIC_API_KEY")
     st.stop()
+
+def identify_categories(content):
+    """Identify categories based on the content."""
+    content_lower = content.lower()
+    scores = defaultdict(float)
+    
+    for category, data in VALID_CATEGORIES.items():
+        matches = 0
+        for keyword in data['keywords']:
+            if ' ' not in keyword:
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+            else:
+                pattern = re.escape(keyword)
+            
+            if re.search(pattern, content_lower):
+                matches += 1
+        
+        if matches > 0:
+            scores[category] = matches * data['weight']
+    
+    matched_categories = []
+    if scores:
+        max_score = max(scores.values())
+        threshold = max_score * 0.3
+        matched_categories = [cat for cat, score in scores.items() 
+                            if score >= threshold]
+        
+        if len(matched_categories) >= 2 and 'featured' in VALID_CATEGORIES:
+            matched_categories.append('featured')
+    
+    if not matched_categories:
+        matched_categories = ['getting-started']
+    
+    return matched_categories
 
 # Template for the quickstart guide
 quickstart_template = '''
@@ -115,7 +197,6 @@ Duration: [X]
 Duration: [X]
 
 [Repeat structure as needed for additional main sections]
-
 
 ## Conclusion and Resources
 Duration: [X]
@@ -210,23 +291,20 @@ def on_url_change():
 def extract_title(content):
     """Extract the article title from the generated content or use custom title."""
     if st.session_state.custom_title:
-        # Clean up custom title
         clean_title = re.sub(r'[^\w\s-]', '', st.session_state.custom_title)
         clean_title = clean_title.replace(' ', '_').lower()
         return clean_title
         
     try:
-        # Look for the title after the header section
         match = re.search(r'# (.+?)(?=\n|\r)', content)
         if match:
             title = match.group(1).strip()
-            # Remove any special characters and replace spaces with underscores
             clean_title = re.sub(r'[^\w\s-]', '', title)
             clean_title = clean_title.replace(' ', '_').lower()
             return clean_title
     except Exception:
         pass
-    return 'tutorial'  # Default title if extraction fails
+    return 'tutorial'
 
 def create_zip():
     """Creates a zip file with the markdown file and assets folder inside a tutorial folder."""
@@ -234,16 +312,9 @@ def create_zip():
     
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         if 'generated_blog' in st.session_state:
-            # Extract title for folder and file names
             title = extract_title(st.session_state.generated_blog)
-            
-            # Create the main markdown file path
             file_path = f"{title}/{title}.md"
-            
-            # Add the markdown file to the zip
             zip_file.writestr(file_path, st.session_state.generated_blog)
-            
-            # Create an empty assets folder by adding a placeholder .gitkeep file
             assets_path = f"{title}/assets/.gitkeep"
             zip_file.writestr(assets_path, "")
     
@@ -266,6 +337,7 @@ def reset_callback():
     st.session_state.github_url = ""
     st.session_state.show_error = False
     st.session_state.error_message = ""
+    st.session_state.selected_categories = None
 
 def submit_callback():
     """Callback function to handle the submit button click"""
@@ -284,7 +356,6 @@ with st.sidebar:
         "Transform your technical content into Quick Start tutorials."
     )
     
-    # Input method selection
     input_method = st.radio(
         "Choose input method",
         ["Upload File", "GitHub URL"],
@@ -319,7 +390,6 @@ with st.sidebar:
         ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
     )
     
-    # Add separate checkboxes for title and author
     use_custom_title = st.checkbox('Specify Quickstart Title')
     if use_custom_title:
         st.session_state.custom_title = st.text_input(
@@ -334,6 +404,17 @@ with st.sidebar:
             'Enter Author Name',
             value=st.session_state.author_name if st.session_state.author_name else '',
             help="This will be used in the Author field of the Quickstart template"
+        )
+
+    # Categories section
+    st.subheader("📑 Categories")
+    if st.session_state.blog_content:
+        suggested_categories = identify_categories(st.session_state.blog_content)
+        st.session_state.selected_categories = st.multiselect(
+            "Select categories",
+            options=list(VALID_CATEGORIES.keys()),
+            default=suggested_categories,
+            help="Choose one or more categories that best match the content"
         )
 
     # Add Submit button - disabled if no blog content
@@ -378,6 +459,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     In filling out the article template, please replace content specified by the brackets [].
     {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
     {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
+    {'Please use the following categories: ' + ', '.join(st.session_state.selected_categories) if st.session_state.selected_categories else ''}
             
     Writing approach:
     - Professional yet accessible tone
