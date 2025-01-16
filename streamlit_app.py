@@ -9,9 +9,11 @@ import time
 import re
 import nbformat
 from nbconvert import MarkdownExporter
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from openai import OpenAI
 from collections import defaultdict
+import yt_dlp
+import assemblyai as aai
 
 # Define valid categories at module level
 VALID_CATEGORIES = {
@@ -73,6 +75,10 @@ if 'author_name' not in st.session_state:
     st.session_state.author_name = None
 if 'github_url' not in st.session_state:
     st.session_state.github_url = ""
+if 'youtube_url' not in st.session_state:
+    st.session_state.youtube_url = ""
+if 'transcript_content' not in st.session_state:
+    st.session_state.transcript_content = None
 if 'show_error' not in st.session_state:
     st.session_state.show_error = False
 if 'error_message' not in st.session_state:
@@ -87,6 +93,12 @@ if 'OPENAI_API_KEY' not in st.secrets:
 if 'ANTHROPIC_API_KEY' not in st.secrets:
     st.error("Please set your Anthropic API key in Streamlit secrets as ANTHROPIC_API_KEY")
     st.stop()
+if 'AAI_KEY' not in st.secrets:
+    st.error("Please set your AssemblyAI API key in Streamlit secrets as AAI_KEY")
+    st.stop()
+
+# Initialize AssemblyAI client
+aai.settings.api_key = st.secrets['AAI_KEY']
 
 def identify_categories(content):
     """Identify categories based on the content."""
@@ -222,6 +234,76 @@ Additional Reading:
 - [Blog/article link 2]
 '''
 
+def is_valid_youtube_url(url):
+    """Check if the URL is a valid YouTube or YouTube Shorts URL"""
+    patterns = [
+        r'https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)(?:\?.*)?$',  # Short URLs
+        r'https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:&.*)?$',  # Regular watch URLs
+        r'https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)(?:\?.*)?$'  # Shorts URLs
+    ]
+    
+    for pattern in patterns:
+        if re.match(pattern, url.strip()):
+            return True
+    return False
+
+def download_audio(url, progress_bar):
+    """Download YouTube video audio with progress tracking"""
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            total_bytes = d.get('total_bytes')
+            downloaded_bytes = d.get('downloaded_bytes', 0)
+            
+            if total_bytes:
+                progress = (downloaded_bytes / total_bytes) * 100
+                progress_bar.progress(int(progress), text=f"Downloading... {int(progress)}%")
+        elif d['status'] == 'finished':
+            progress_bar.progress(100, text="Converting to WAV...")
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+            'preferredquality': '192',
+        }],
+        'outtmpl': '%(title)s.%(ext)s',
+        'verbose': True,
+        'progress_hooks': [progress_hook],
+    }
+
+    try:
+        progress_bar.progress(0, text="Starting download...")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        progress_bar.progress(100, text="Download complete!")
+        time.sleep(1)
+        progress_bar.empty()
+        return True
+    except Exception as e:
+        progress_bar.error(f"Error: {str(e)}")
+        return False
+
+def find_wav_files(directory):
+    """Find WAV files in directory"""
+    wav_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith('.wav'):
+                wav_files.append(os.path.join(root, file))
+    return wav_files
+
+@st.cache_resource
+def transcribe_audio(wave_file):
+    """Transcribe audio file using AssemblyAI"""
+    try:
+        transcriber = aai.Transcriber()
+        transcript = transcriber.transcribe(wave_file)
+        return transcript.text if transcript else None
+    except Exception as e:
+        st.error(f"Error during transcription: {str(e)}")
+        return None
+
 # GitHub URL handling functions
 def is_valid_github_url(url):
     """Validate GitHub URL for Jupyter notebook or Markdown file"""
@@ -335,13 +417,70 @@ def reset_callback():
     st.session_state.custom_title = None
     st.session_state.author_name = None
     st.session_state.github_url = ""
+    st.session_state.youtube_url = ""
+    st.session_state.transcript_content = None
     st.session_state.show_error = False
     st.session_state.error_message = ""
     st.session_state.selected_categories = None
+    
+    # Clean up any WAV files
+    wav_files = find_wav_files(os.getcwd())
+    for file in wav_files:
+        try:
+            os.remove(file)
+        except Exception as e:
+            st.warning(f"Could not remove temporary audio file: {str(e)}")
 
 def submit_callback():
     """Callback function to handle the submit button click"""
     st.session_state.submitted = True
+
+def get_user_prompt(blog_content, transcript_content=None):
+    """Construct the user prompt for the LLM"""
+    prompt = f"""
+    Create a technical tutorial by filling out the article template {quickstart_template}
+    by integrating content and code from the attached blog content {blog_content}
+    """
+    
+    if transcript_content:
+        prompt += f"\nand incorporating relevant information from the video transcript: {transcript_content}"
+    
+    prompt += f"""
+    {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
+    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
+    {'Please use the following categories: ' + ', '.join(st.session_state.selected_categories) if st.session_state.selected_categories else ''}
+            
+    Writing approach:
+    - Professional yet accessible tone
+    - Active voice
+    - Direct reader address
+    - Concise introduction focusing on value proposition
+
+    Notes:
+    - Please have the article title start with gerunds (Building, Performing, etc.)
+    - If mentioning about installing Python packages. Please say something like the following but rephrase:
+      Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
+      such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
+      Packages dropdown on the top right to add additional packages to your notebook.
+    - Please ensure that there is mention of the following in ## Overview: 
+        ### What You'll Need
+        Access to a [Snowflake account](https://signup.snowflake.com/)
+    - In the Resources section, if you don't have the URL, please don't mention about it
+      however if the URL is available in the provided blog please get it and use it
+    - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
+    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
+      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
+      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
+      like Happy Coding please make sure to have it as a normal text.
+    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
+    - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
+      to the 'Articles:' segment of the Conclusion section.
+    - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
+      to the 'Documention' segment of the Conclusion section.
+    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
+    """
+    
+    return prompt
 
 # Set up the Streamlit page
 st.set_page_config(
@@ -384,6 +523,30 @@ with st.sidebar:
             on_change=on_url_change,
             placeholder="https://github.com/username/repo/blob/main/file.{md,ipynb}"
         )
+
+    # YouTube Video section
+    st.subheader("YouTube Video (Optional)")
+    youtube_url = st.text_input(
+        "Enter YouTube URL",
+        key="youtube_url",
+        placeholder="https://www.youtube.com/watch?v=..."
+    )
+
+    if youtube_url and is_valid_youtube_url(youtube_url):
+        progress_bar = st.progress(0)
+        if download_audio(youtube_url, progress_bar):
+            wav_files = find_wav_files(os.getcwd())
+            if wav_files:
+                with st.spinner("📝 Transcribing audio... This may take a few minutes..."):
+                    transcript = transcribe_audio(wav_files[0])
+                    if transcript:
+                        st.session_state.transcript_content = transcript
+                        try:
+                            os.remove(wav_files[0])
+                        except Exception as e:
+                            st.warning(f"Could not remove temporary audio file: {str(e)}")
+    elif youtube_url:
+        st.error("Please enter a valid YouTube URL")
 
     st.subheader("⚙️ Settings")
     llm_model = st.selectbox(
@@ -453,46 +616,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     structured tutorials from existing technical content.
     """
 
-    user_prompt = f"""
-    Create a technical tutorial by filling out the article template {quickstart_template}
-    by integrating content and code from the attached blog content {st.session_state.blog_content}. 
-    
-    In filling out the article template, please replace content specified by the brackets [].
-    {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
-    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
-    {'Please use the following categories: ' + ', '.join(st.session_state.selected_categories) if st.session_state.selected_categories else ''}
-            
-    Writing approach:
-    - Professional yet accessible tone
-    - Active voice
-    - Direct reader address
-    - Concise introduction focusing on value proposition
-
-    Notes:
-    - Please have the article title start with gerunds (Building, Performing, etc.)
-    - If mentioning about installing Python packages. Please say something like the following but rephrase:
-      Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
-      such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
-      Packages dropdown on the top right to add additional packages to your notebook.
-    - Please ensure that there is mention of the following in ## Overview: 
-        ### What You'll Need
-        Access to a [Snowflake account](https://signup.snowflake.com/)
-    - In the Resources section, if you don't have the URL, please don't mention about it
-      however if the URL is available in the provided blog please get it and use it
-    - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
-    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
-      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
-      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
-      like Happy Coding please make sure to have it as a normal text.
-    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
-    - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
-      to the 'Articles:' segment of the Conclusion section.
-    - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
-      to the 'Documention' segment of the Conclusion section.
-    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
-            
-    Deliver the final output directly without meta-commentary.
-    """
+    user_prompt = get_user_prompt(st.session_state.blog_content, st.session_state.transcript_content)
 
     st.subheader("Generated Tutorial")
     
@@ -552,20 +676,26 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
         with st.expander('See generated tutorial'):
             st.code(st.session_state.generated_blog, language='markdown')
 
-        # Get the title for the download filename
-        title = extract_title(st.session_state.generated_blog)
-        
         # Download button for zip file
         st.download_button(
             label="📥 Download ZIP",
             data=st.session_state.zip_data if st.session_state.zip_data else create_zip(),
-            file_name=f"{title}.zip",
+            file_name=f"{extract_title(st.session_state.generated_blog)}.zip",
             mime="application/zip",
             key='download_button',
             help="Download the Quick Start tutorial with assets folder",
             on_click=handle_download
         )
+
+        # Add column for transcript display if available
+        if st.session_state.transcript_content:
+            st.subheader("Video Transcript")
+            with st.expander("See video transcript"):
+                st.write(st.session_state.transcript_content)
     
     except Exception as e:
         progress_bar.empty()
         st.error(f"Error generating tutorial: {str(e)}")
+
+        # Reset the submitted state
+        st.session_state.submitted = False
