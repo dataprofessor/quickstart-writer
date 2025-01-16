@@ -695,16 +695,16 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
 
     user_prompt = get_user_prompt(st.session_state.blog_content, st.session_state.transcript_content)
 
-    st.subheader("Generated Tutorial")
+    st.subheader("Generated Quickstarts")
     
     # Create a progress bar placeholder
     progress_bar = st.empty()
-    progress_bar.progress(0, text="Starting tutorial generation...")
+    progress_bar.progress(0, text="Starting quickstart generation...")
     
     try:
         for percent in range(0, 90, 10):
             time.sleep(0.1)
-            progress_bar.progress(percent, text=f"Generating tutorial content... {percent}%")
+            progress_bar.progress(percent, text=f"Generating quickstart content... {percent}%")
 
         if llm_model == "o1-mini":
             client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
@@ -745,7 +745,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
         # Store the generated tutorial
         st.session_state.generated_blog = tutorial_content
         
-        progress_bar.progress(100, text="Tutorial generation complete!")
+        progress_bar.progress(100, text="Quickstarts generation complete!")
         time.sleep(0.5)
         progress_bar.empty()
         
@@ -760,13 +760,13 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             file_name=f"{extract_title(st.session_state.generated_blog)}.zip",
             mime="application/zip",
             key='download_button',
-            help="Download the Quick Start tutorial with assets folder",
+            help="Download the Quickstarts with assets folder",
             on_click=handle_download
         )
     
     except Exception as e:
         progress_bar.empty()
-        st.error(f"Error generating tutorial: {str(e)}")
+        st.error(f"Error generating quickstarts: {str(e)}")
 
         # Reset the submitted state
         st.session_state.submitted = False
