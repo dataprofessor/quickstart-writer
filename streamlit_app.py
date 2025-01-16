@@ -608,6 +608,51 @@ if not st.session_state.blog_content:
         st.info("Please upload your content file in the sidebar!", icon="👈")
     else:
         st.info("Please enter a GitHub URL in the sidebar!", icon="👈")
+else:
+    # Create columns for content display
+    if st.session_state.transcript_content:
+        col1, col2 = st.columns(2)
+    else:
+        col1 = st
+    
+    # Display input content
+    with col1:
+        st.subheader("Input Content")
+        st.text_area(
+            "Preview",
+            st.session_state.blog_content,
+            height=400
+        )
+        
+        filename = "content.md"
+        if input_method == "GitHub URL" and st.session_state.github_url:
+            filename = os.path.basename(st.session_state.github_url)
+        
+        st.download_button(
+            label="Download Input Content",
+            data=st.session_state.blog_content,
+            file_name=filename,
+            mime="text/markdown" if filename.endswith('.md') else "text/plain",
+            key="download_input"
+        )
+    
+    # Display transcript if available
+    if st.session_state.transcript_content:
+        with col2:
+            st.subheader("Video Transcript")
+            st.text_area(
+                "Preview",
+                st.session_state.transcript_content,
+                height=400
+            )
+            
+            st.download_button(
+                label="Download Transcript",
+                data=st.session_state.transcript_content,
+                file_name="transcript.txt",
+                mime="text/plain",
+                key="download_transcript"
+            )
 
 # Only generate content if submitted
 if st.session_state.blog_content is not None and st.session_state.submitted:
@@ -672,8 +717,12 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
         time.sleep(0.5)
         progress_bar.empty()
         
-        # Display the tutorial content
+        # Display the generated tutorial content
         with st.expander('See generated tutorial'):
+            st.markdown(st.session_state.generated_blog)
+        
+        st.write("**Markdown**")
+        with st.expander("Generated Tutorial (Markdown)"):
             st.code(st.session_state.generated_blog, language='markdown')
 
         # Download button for zip file
