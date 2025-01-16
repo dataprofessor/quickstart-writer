@@ -704,7 +704,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     try:
         for percent in range(0, 90, 10):
             time.sleep(0.1)
-            progress_bar.progress(percent, text=f"Generating quickstart content... {percent}%")
+            progress_bar.progress(percent, text=f"Generating Quickstarts Content... {percent}%")
 
         if llm_model == "o1-mini":
             client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
