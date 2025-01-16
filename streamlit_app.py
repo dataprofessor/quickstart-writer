@@ -410,6 +410,11 @@ def handle_download():
 
 def reset_callback():
     """Reset all application state variables"""
+    # Clear all session state variables
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    
+    # Reinitialize necessary session state variables
     st.session_state.blog_content = None
     st.session_state.generated_blog = None
     st.session_state.zip_data = None
@@ -422,10 +427,7 @@ def reset_callback():
     st.session_state.show_error = False
     st.session_state.error_message = ""
     st.session_state.selected_categories = None
-    
-    # Clear uploaded file
-    if 'uploaded_file' in st.session_state:
-        del st.session_state.uploaded_file
+    st.session_state.previous_input_method = "Upload File"
     
     # Clean up any WAV files
     wav_files = find_wav_files(os.getcwd())
@@ -434,6 +436,9 @@ def reset_callback():
             os.remove(file)
         except Exception as e:
             st.warning(f"Could not remove temporary audio file: {str(e)}")
+            
+    # Force a rerun to clear the interface
+    st.rerun()
 
 def has_input_content():
     """Check if there is any input content"""
@@ -506,20 +511,25 @@ with st.sidebar:
     )
 
     st.subheader("📃 Input Content")
-    previous_method = st.session_state.get('input_method', 'Upload File')
+    
+    # Store current input method in session state if not present
+    if 'previous_input_method' not in st.session_state:
+        st.session_state.previous_input_method = "Upload File"
+    
     input_method = st.radio(
         "Choose input method",
         ["Upload File", "GitHub URL"],
-        help="Select how you want to provide your content",
-        key="input_method"
+        help="Select how you want to provide your content"
     )
     
     # Clear content if input method changes
-    if previous_method != input_method:
+    if input_method != st.session_state.previous_input_method:
         st.session_state.blog_content = None
         st.session_state.github_url = ""
         if 'uploaded_file' in st.session_state:
             del st.session_state.uploaded_file
+        st.session_state.previous_input_method = input_method
+        st.rerun()
     
     if input_method == "Upload File":
         uploaded_file = st.file_uploader(
