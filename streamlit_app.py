@@ -355,7 +355,8 @@ with st.sidebar:
     st.warning(
         "Transform your technical content into Quick Start tutorials."
     )
-    
+
+    st.subheader("📃 Input Content")
     input_method = st.radio(
         "Choose input method",
         ["Upload File", "GitHub URL"],
