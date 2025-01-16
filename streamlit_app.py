@@ -613,7 +613,7 @@ else:
     if st.session_state.transcript_content:
         col1, col2 = st.columns(2)
     else:
-        col1 = st
+        col1, = st.columns(1)  # Using tuple unpacking for single column
     
     # Display input content
     with col1:
