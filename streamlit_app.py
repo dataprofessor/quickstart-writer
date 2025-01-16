@@ -623,7 +623,7 @@ with st.sidebar:
     # Add Reset button - enabled if there's any input content
     st.button(
         "Reset All",
-        type="primary",
+        type="secondary",
         on_click=reset_callback,
         disabled=not has_input_content(),
         use_container_width=True
