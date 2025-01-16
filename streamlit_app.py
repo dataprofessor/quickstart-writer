@@ -749,12 +749,11 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
         time.sleep(0.5)
         progress_bar.empty()
         
-        # Display the generated tutorial content
-        with st.expander('See generated tutorial'):
-            st.markdown(st.session_state.generated_blog)
+        # Display the generated tutorial
+        st.subheader("Generated Quickstarts")
+        st.markdown(st.session_state.generated_blog)
         
-        st.write("**Markdown**")
-        with st.expander("Generated Tutorial (Markdown)"):
+        with st.expander("Generated Quickstarts"):
             st.code(st.session_state.generated_blog, language='markdown')
 
         # Download button for zip file
@@ -767,12 +766,6 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             help="Download the Quick Start tutorial with assets folder",
             on_click=handle_download
         )
-
-        # Add column for transcript display if available
-        if st.session_state.transcript_content:
-            st.subheader("Video Transcript")
-            with st.expander("See video transcript"):
-                st.write(st.session_state.transcript_content)
     
     except Exception as e:
         progress_bar.empty()
