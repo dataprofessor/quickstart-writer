@@ -518,7 +518,7 @@ with st.sidebar:
     
     input_method = st.radio(
         "Choose input method",
-        ["GitHub URL", "Upload Markdown File"],
+        ["GitHub URL of Notebook", "Upload Markdown File"],
         help="Select how you want to provide your content"
     )
     
@@ -657,7 +657,7 @@ else:
         )
         
         filename = "content.md"
-        if input_method == "GitHub URL" and st.session_state.github_url:
+        if input_method == "GitHub URL of Notebook" and st.session_state.github_url:
             filename = os.path.basename(st.session_state.github_url)
         
         st.download_button(
