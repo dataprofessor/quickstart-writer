@@ -766,7 +766,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     
     except Exception as e:
         progress_bar.empty()
-        st.error(f"Error generating quickstarts: {str(e)}")
+        st.error(f"Error Generating Quickstarts: {str(e)}")
 
         # Reset the submitted state
         st.session_state.submitted = False
