@@ -750,7 +750,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
         progress_bar.empty()
         
         # Display the generated tutorial
-        with st.expander("See Generated Quickstarts"):
+        with st.expander("See Generated Quickstarts", expanded=True):
             st.code(st.session_state.generated_blog, language='markdown')
 
         # Download button for zip file
