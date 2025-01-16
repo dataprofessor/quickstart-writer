@@ -647,7 +647,9 @@ else:
     
     # Display input content
     with col1:
-        st.subheader("Input Content")
+        # Dynamic header based on input method
+        header_text = "Uploaded Markdown" if input_method == "Upload File" else "Notebook Markdown"
+        st.subheader(header_text)
         st.text_area(
             "Preview",
             st.session_state.blog_content,
