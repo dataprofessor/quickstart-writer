@@ -427,7 +427,7 @@ def reset_callback():
     st.session_state.show_error = False
     st.session_state.error_message = ""
     st.session_state.selected_categories = None
-    st.session_state.previous_input_method = "Upload File"
+    st.session_state.previous_input_method = "Upload Markdown File"
     
     # Clean up any WAV files
     wav_files = find_wav_files(os.getcwd())
@@ -514,11 +514,11 @@ with st.sidebar:
     
     # Store current input method in session state if not present
     if 'previous_input_method' not in st.session_state:
-        st.session_state.previous_input_method = "Upload File"
+        st.session_state.previous_input_method = "Upload Markdown File"
     
     input_method = st.radio(
         "Choose input method",
-        ["Upload File", "GitHub URL"],
+        ["Upload Markdown File", "GitHub URL"],
         help="Select how you want to provide your content"
     )
     
@@ -531,7 +531,7 @@ with st.sidebar:
         st.session_state.previous_input_method = input_method
         st.rerun()
     
-    if input_method == "Upload File":
+    if input_method == "Upload Markdown File":
         uploaded_file = st.file_uploader(
             "Upload your content (markdown or notebook file)",
             type=['md', 'txt', 'ipynb'],
@@ -634,7 +634,7 @@ if st.session_state.show_error:
     st.error(st.session_state.error_message)
 
 if not st.session_state.blog_content:
-    if input_method == "Upload File":
+    if input_method == "Upload Markdown File":
         st.info("Please upload your content file in the sidebar!", icon="👈")
     else:
         st.info("Please enter a GitHub URL in the sidebar!", icon="👈")
@@ -648,7 +648,7 @@ else:
     # Display input content
     with col1:
         # Dynamic header based on input method
-        header_text = "Uploaded Markdown" if input_method == "Upload File" else "Notebook Markdown"
+        header_text = "Uploaded Markdown" if input_method == "Upload Markdown File" else "Notebook Markdown"
         st.subheader(header_text)
         st.text_area(
             "Preview",
