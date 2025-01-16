@@ -555,7 +555,7 @@ with st.sidebar:
         )
 
     # YouTube Video section
-    st.subheader("YouTube Video (Optional)")
+    st.subheader("📺 YouTube Video (Optional)")
     youtube_url = st.text_input(
         "Enter YouTube URL",
         key="youtube_url",
