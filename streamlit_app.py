@@ -472,6 +472,7 @@ def get_user_prompt(blog_content, transcript_content=None):
     - Concise introduction focusing on value proposition
 
     Notes:
+    - If author name is not provided please add a placeholder like [First Name] [Last Name]
     - Please have the article title start with gerunds (Building, Performing, etc.)
     - If mentioning about installing Python packages. Please say something like the following but rephrase:
       Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
