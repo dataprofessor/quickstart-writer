@@ -423,6 +423,10 @@ def reset_callback():
     st.session_state.error_message = ""
     st.session_state.selected_categories = None
     
+    # Clear uploaded file
+    if 'uploaded_file' in st.session_state:
+        del st.session_state.uploaded_file
+    
     # Clean up any WAV files
     wav_files = find_wav_files(os.getcwd())
     for file in wav_files:
@@ -430,6 +434,12 @@ def reset_callback():
             os.remove(file)
         except Exception as e:
             st.warning(f"Could not remove temporary audio file: {str(e)}")
+
+def has_input_content():
+    """Check if there is any input content"""
+    return (st.session_state.blog_content is not None or 
+            bool(st.session_state.github_url.strip()) or 
+            'uploaded_file' in st.session_state)
 
 def submit_callback():
     """Callback function to handle the submit button click"""
@@ -496,17 +506,27 @@ with st.sidebar:
     )
 
     st.subheader("📃 Input Content")
+    previous_method = st.session_state.get('input_method', 'Upload File')
     input_method = st.radio(
         "Choose input method",
         ["Upload File", "GitHub URL"],
-        help="Select how you want to provide your content"
+        help="Select how you want to provide your content",
+        key="input_method"
     )
+    
+    # Clear content if input method changes
+    if previous_method != input_method:
+        st.session_state.blog_content = None
+        st.session_state.github_url = ""
+        if 'uploaded_file' in st.session_state:
+            del st.session_state.uploaded_file
     
     if input_method == "Upload File":
         uploaded_file = st.file_uploader(
             "Upload your content (markdown or notebook file)",
             type=['md', 'txt', 'ipynb'],
-            help="Upload a file containing your content"
+            help="Upload a file containing your content",
+            key="uploaded_file"
         )
         if uploaded_file is not None:
             if uploaded_file.name.endswith('.ipynb'):
@@ -590,12 +610,12 @@ with st.sidebar:
         use_container_width=True
     )
     
-    # Add Reset button - disabled if content hasn't been generated yet
+    # Add Reset button - enabled if there's any input content
     st.button(
         "Reset All",
         type="primary",
         on_click=reset_callback,
-        disabled=not st.session_state.submitted,
+        disabled=not has_input_content(),
         use_container_width=True
     )
 
