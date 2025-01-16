@@ -518,7 +518,7 @@ with st.sidebar:
     
     input_method = st.radio(
         "Choose input method",
-        ["Upload Markdown File", "GitHub URL"],
+        ["GitHub URL", "Upload Markdown File"],
         help="Select how you want to provide your content"
     )
     
