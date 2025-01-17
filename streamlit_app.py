@@ -11,6 +11,7 @@ import nbformat
 from nbconvert import MarkdownExporter
 from urllib.parse import urlparse
 from openai import OpenAI
+from bs4 import BeautifulSoup
 
 # Initialize session state variables
 if 'blog_content' not in st.session_state:
@@ -116,7 +117,6 @@ Duration: [X]
 
 [Repeat structure as needed for additional main sections]
 
-
 ## Conclusion and Resources
 Duration: [X]
 
@@ -141,40 +141,95 @@ Additional Reading:
 - [Blog/article link 2]
 '''
 
-# GitHub URL handling functions
+def extract_github_data(url):
+    """Extract repository data from GitHub URL"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        script_tag = soup.find('script', attrs={
+            'type': 'application/json',
+            'data-target': 'react-app.embeddedData'
+        })
+        
+        if script_tag:
+            try:
+                return json.loads(script_tag.string)
+            except json.JSONDecodeError:
+                return None
+    return None
+
 def is_valid_github_url(url):
-    """Validate GitHub URL for Jupyter notebook or Markdown file"""
+    """Validate GitHub URL for Jupyter notebook, repository, or Markdown file"""
     if not url:
         return False
     
     try:
         parsed = urlparse(url)
         path_parts = parsed.path.split('/')
-        return (
-            parsed.netloc == "github.com" and
-            len(path_parts) >= 3 and
-            ("blob" in parsed.path or "tree" in parsed.path) and
-            (path_parts[-1].endswith('.ipynb') or path_parts[-1].endswith('.md'))
-        )
+        
+        # Basic GitHub URL validation
+        if parsed.netloc != "github.com" or len(path_parts) < 3:
+            return False
+            
+        # Check if it's a direct file link
+        if "blob" in parsed.path:
+            return path_parts[-1].endswith('.ipynb') or path_parts[-1].endswith('.md')
+        
+        # Check if it's a repository or tree link
+        elif "tree" in parsed.path:
+            return True
+            
+        # Check if it's a repository root
+        elif len(path_parts) >= 3:
+            return True
+            
+        return False
     except:
         return False
 
 def get_file_content(github_url):
-    """Fetch content from GitHub"""
+    """Fetch content from GitHub URL, handling both direct file links and repository URLs"""
     try:
         parsed = urlparse(github_url)
         path_parts = parsed.path.split('/')
         
+        # Handle direct file links (blob)
         if 'blob' in path_parts:
             blob_index = path_parts.index('blob')
             path_parts.pop(blob_index)
             path_parts.insert(blob_index, 'refs/heads')
-        elif 'tree' in path_parts:
-            tree_index = path_parts.index('tree')
-            path_parts.pop(tree_index)
-            path_parts.insert(tree_index, 'refs/heads')
-        
-        raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
+            raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
+            
+        # Handle repository or tree links
+        elif 'tree' in path_parts or len(path_parts) >= 3:
+            json_data = extract_github_data(github_url)
+            if json_data:
+                repo_owner = json_data['payload']['repo']['ownerLogin']
+                repo_name = json_data['payload']['repo']['name']
+                branch = json_data['payload']['repo']['defaultBranch']
+                
+                # Find the first .ipynb file
+                tree_items = json_data['payload']['tree']['items']
+                ipynb_path = None
+                for item in tree_items:
+                    if item['path'].endswith('.ipynb'):
+                        ipynb_path = item['path']
+                        break
+                
+                if ipynb_path:
+                    raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/refs/heads/{branch}/{ipynb_path}"
+                else:
+                    raise Exception("No Jupyter notebook found in repository")
+            else:
+                raise Exception("Failed to extract repository data")
+        else:
+            raise Exception("Invalid GitHub URL format")
+
+        # Fetch and process the content
         response = requests.get(raw_url)
         response.raise_for_status()
         
@@ -186,11 +241,9 @@ def get_file_content(github_url):
             return content
         else:
             return response.content.decode('utf-8')
-        
+            
     except Exception as e:
-        st.session_state.error_message = f"Error: {str(e)}"
-        st.session_state.show_error = True
-        return None
+        raise Exception(f"Error processing GitHub content: {str(e)}")
 
 def on_url_change():
     """Handle GitHub URL changes"""
@@ -200,11 +253,15 @@ def on_url_change():
     
     if st.session_state.github_url:
         if is_valid_github_url(st.session_state.github_url):
-            content = get_file_content(st.session_state.github_url)
-            if content:
-                st.session_state.blog_content = content
+            try:
+                content = get_file_content(st.session_state.github_url)
+                if content:
+                    st.session_state.blog_content = content
+            except Exception as e:
+                st.session_state.error_message = str(e)
+                st.session_state.show_error = True
         else:
-            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file."
+            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub repository URL or direct link to a Jupyter notebook (.ipynb) or Markdown (.md) file."
             st.session_state.show_error = True
 
 def extract_title(content):
@@ -292,6 +349,130 @@ with st.sidebar:
     )
     
     if input_method == "Upload File":
+        st.info("Please upload your content file in the sidebar!", icon="👈")
+    else:
+        st.info("Please enter a GitHub URL in the sidebar!", icon="👈")
+
+# Only generate content if submitted
+if st.session_state.blog_content is not None and st.session_state.submitted:
+    system_prompt = """
+    You are an experienced technical writer specializing in creating clear, 
+    structured tutorials from existing technical content.
+    """
+
+    user_prompt = f"""
+    Create a technical tutorial by filling out the article template {quickstart_template}
+    by integrating content and code from the attached blog content {st.session_state.blog_content}. 
+    
+    In filling out the article template, please replace content specified by the brackets [].
+    {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
+    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
+            
+    Writing approach:
+    - Professional yet accessible tone
+    - Active voice
+    - Direct reader address
+    - Concise introduction focusing on value proposition
+
+    Notes:
+    - Please have the article title start with gerunds (Building, Performing, etc.)
+    - If mentioning about installing Python packages. Please say something like the following but rephrase:
+      Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
+      such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
+      Packages dropdown on the top right to add additional packages to your notebook.
+    - In the Resources section, if you don't have the URL, please don't mention about it
+      however if the URL is available in the provided blog please get it and use it
+    - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
+    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
+      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
+      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
+      like Happy Coding please make sure to have it as a normal text.
+    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
+    - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
+      to the 'Articles:' segment of the Conclusion section.
+    - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
+      to the 'Documention' segment of the Conclusion section.
+    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
+            
+    Deliver the final output directly without meta-commentary.
+    """
+
+    st.subheader("Generated Tutorial")
+    
+    # Create a progress bar placeholder
+    progress_bar = st.empty()
+    progress_bar.progress(0, text="Starting tutorial generation...")
+    
+    try:
+        for percent in range(0, 90, 10):
+            time.sleep(0.1)
+            progress_bar.progress(percent, text=f"Generating tutorial content... {percent}%")
+
+        if llm_model == "o1-mini":
+            client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
+            completion = client.chat.completions.create(
+                model=llm_model,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            tutorial_content = completion.choices[0].message.content
+
+        elif llm_model == "gpt-4-turbo":
+            client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
+            completion = client.chat.completions.create(
+                model=llm_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            tutorial_content = completion.choices[0].message.content
+
+        elif llm_model == "claude-3-5-sonnet-20241022":
+            client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
+            completion = client.messages.create(
+                model=llm_model,
+                max_tokens=4000,
+                temperature=0,
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            tutorial_content = completion.content[0].text
+        
+        progress_bar.progress(90, text="Processing final output...")
+        
+        # Store the generated tutorial
+        st.session_state.generated_blog = tutorial_content
+        
+        progress_bar.progress(100, text="Tutorial generation complete!")
+        time.sleep(0.5)
+        progress_bar.empty()
+        
+        # Display the tutorial content
+        with st.expander('See generated tutorial'):
+            st.code(st.session_state.generated_blog, language='markdown')
+
+        # Get the title for the download filename
+        title = extract_title(st.session_state.generated_blog)
+        
+        # Download button for zip file
+        st.download_button(
+            label="📥 Download ZIP",
+            data=st.session_state.zip_data if st.session_state.zip_data else create_zip(),
+            file_name=f"{title}.zip",
+            mime="application/zip",
+            key='download_button',
+            help="Download the Quick Start tutorial with assets folder",
+            on_click=handle_download
+        )
+    
+    except Exception as e:
+        progress_bar.empty()
+        st.error(f"Error generating tutorial: {str(e)}")
+Upload File":
         uploaded_file = st.file_uploader(
             "Upload your content (markdown or notebook file)",
             type=['md', 'txt', 'ipynb'],
@@ -377,7 +558,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     
     In filling out the article template, please replace content specified by the brackets [].
     {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
-    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
+    {f'Please use "{st.session_state.custom_title}" as the id.' if st.session_state.custom_title else ''}
             
     Writing approach:
     - Professional yet accessible tone
@@ -402,8 +583,8 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
     - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
       to the 'Articles:' segment of the Conclusion section.
     - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
-      to the 'Documention' segment of the Conclusion section.
-    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
+      to the 'Documentation' segment of the Conclusion section.
+    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documentation' segment of the Conclusion section.
             
     Deliver the final output directly without meta-commentary.
     """
