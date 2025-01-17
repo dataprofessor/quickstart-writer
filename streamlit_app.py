@@ -16,6 +16,13 @@ import yt_dlp
 import assemblyai as aai
 from bs4 import BeautifulSoup
 
+# Set up the Streamlit page
+st.set_page_config(
+    page_title="Write Quickstarts",
+    page_icon="⏩",
+    layout="wide"
+)
+
 # Define valid categories at module level
 VALID_CATEGORIES = {
     'getting-started': {
@@ -469,12 +476,6 @@ def get_user_prompt(blog_content, transcript_content=None):
     
     return prompt
 
-# Set up the Streamlit page
-st.set_page_config(
-    page_title="Write Quickstarts",
-    page_icon="⏩",
-    layout="wide"
-)
 
 with st.sidebar:
     st.title("⏩ Write Quickstarts")
