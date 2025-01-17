@@ -442,10 +442,6 @@ def on_url_change():
             st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file, or a repository containing such files."
             st.session_state.show_error = True
 
-[... Rest of the existing quickstarts code remains unchanged ...]
-,  # Regular watch URLs
-        r'https?:\/\/(?:www\.)?youtube\.com
-
 def extract_github_data(url):
     """Extract repository data from GitHub page"""
     headers = {
