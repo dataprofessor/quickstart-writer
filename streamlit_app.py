@@ -157,9 +157,13 @@ def get_raw_github_url(github_url, json_data=None):
     
     # Case 1: Direct file link
     if "blob" in path_parts:
+        # Get the index of 'blob' and extract relevant parts
         blob_index = path_parts.index('blob')
-        path_parts[blob_index] = 'raw'
-        return f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
+        owner = path_parts[1]
+        repo = path_parts[2]
+        branch = path_parts[blob_index + 1]
+        file_path = '/'.join(path_parts[blob_index + 2:])
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{file_path}"
     
     # Case 2: Repository link
     elif "tree" in path_parts and json_data:
