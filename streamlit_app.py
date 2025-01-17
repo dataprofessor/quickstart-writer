@@ -86,6 +86,8 @@ if 'error_message' not in st.session_state:
     st.session_state.error_message = ""
 if 'selected_categories' not in st.session_state:
     st.session_state.selected_categories = None
+if 'previous_input_method' not in st.session_state:
+    st.session_state.previous_input_method = "Upload Markdown File"
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -100,30 +102,6 @@ if 'AAI_KEY' not in st.secrets:
 
 # Initialize AssemblyAI client
 aai.settings.api_key = st.secrets['AAI_KEY']
-
-def extract_github_data(url):
-    """Extract repository data from GitHub page"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        script_tag = soup.find('script', attrs={
-            'type': 'application/json',
-            'data-target': 'react-app.embeddedData'
-        })
-        
-        if script_tag:
-            try:
-                return json.loads(script_tag.string)
-            except json.JSONDecodeError:
-                return "Error: Could not parse JSON data"
-        else:
-            return "Error: Script tag not found"
-    else:
-        return f"Error: Failed to fetch page (Status code: {response.status_code})"
 
 def is_valid_github_url(url):
     """Validate GitHub URL for repository or direct file links"""
@@ -184,6 +162,30 @@ def get_raw_github_url(github_url, json_data=None):
     
     return None
 
+def extract_github_data(url):
+    """Extract repository data from GitHub page"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        script_tag = soup.find('script', attrs={
+            'type': 'application/json',
+            'data-target': 'react-app.embeddedData'
+        })
+        
+        if script_tag:
+            try:
+                return json.loads(script_tag.string)
+            except json.JSONDecodeError:
+                return "Error: Could not parse JSON data"
+        else:
+            return "Error: Script tag not found"
+    else:
+        return f"Error: Failed to fetch page (Status code: {response.status_code})"
+
 def get_file_content(github_url):
     """Fetch content from GitHub URL"""
     try:
@@ -216,6 +218,77 @@ def get_file_content(github_url):
     except Exception as e:
         st.session_state.error_message = f"Error: {str(e)}"
         st.session_state.show_error = True
+        return None
+
+
+def is_valid_youtube_url(url):
+    """Check if the URL is a valid YouTube or YouTube Shorts URL"""
+    patterns = [
+        r'https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)(?:\?.*)?$',  # Short URLs
+        r'https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:&.*)?$',  # Regular watch URLs
+        r'https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)(?:\?.*)?$'  # Shorts URLs
+    ]
+    
+    for pattern in patterns:
+        if re.match(pattern, url.strip()):
+            return True
+    return False
+
+def download_audio(url, progress_bar):
+    """Download YouTube video audio with progress tracking"""
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            total_bytes = d.get('total_bytes')
+            downloaded_bytes = d.get('downloaded_bytes', 0)
+            
+            if total_bytes:
+                progress = (downloaded_bytes / total_bytes) * 100
+                progress_bar.progress(int(progress), text=f"Downloading... {int(progress)}%")
+        elif d['status'] == 'finished':
+            progress_bar.progress(100, text="Converting to WAV...")
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+            'preferredquality': '192',
+        }],
+        'outtmpl': '%(title)s.%(ext)s',
+        'verbose': True,
+        'progress_hooks': [progress_hook],
+    }
+
+    try:
+        progress_bar.progress(0, text="Starting download...")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        progress_bar.progress(100, text="Download complete!")
+        time.sleep(1)
+        progress_bar.empty()
+        return True
+    except Exception as e:
+        progress_bar.error(f"Error: {str(e)}")
+        return False
+
+def find_wav_files(directory):
+    """Find WAV files in directory"""
+    wav_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.lower().endswith('.wav'):
+                wav_files.append(os.path.join(root, file))
+    return wav_files
+
+@st.cache_resource
+def transcribe_audio(wave_file):
+    """Transcribe audio file using AssemblyAI"""
+    try:
+        transcriber = aai.Transcriber()
+        transcript = transcriber.transcribe(wave_file)
+        return transcript.text if transcript else None
+    except Exception as e:
+        st.error(f"Error during transcription: {str(e)}")
         return None
 
 def identify_categories(content):
@@ -251,21 +324,6 @@ def identify_categories(content):
         matched_categories = ['getting-started']
     
     return matched_categories
-
-def on_url_change():
-    """Handle GitHub URL changes"""
-    st.session_state.show_error = False
-    st.session_state.error_message = ""
-    st.session_state.blog_content = None
-    
-    if st.session_state.github_url:
-        if is_valid_github_url(st.session_state.github_url):
-            content = get_file_content(st.session_state.github_url)
-            if content:
-                st.session_state.blog_content = content
-        else:
-            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file, or a repository containing such files."
-            st.session_state.show_error = True
 
 def extract_title(content):
     """Extract the article title from the generated content or use custom title."""
@@ -347,6 +405,22 @@ def submit_callback():
     """Callback function to handle the submit button click"""
     st.session_state.submitted = True
 
+def on_url_change():
+    """Handle GitHub URL changes"""
+    st.session_state.show_error = False
+    st.session_state.error_message = ""
+    st.session_state.blog_content = None
+    
+    if st.session_state.github_url:
+        if is_valid_github_url(st.session_state.github_url):
+            content = get_file_content(st.session_state.github_url)
+            if content:
+                st.session_state.blog_content = content
+        else:
+            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file, or a repository containing such files."
+            st.session_state.show_error = True
+
+
 def get_user_prompt(blog_content, transcript_content=None):
     """Construct the user prompt for the LLM"""
     prompt = f"""
@@ -409,10 +483,6 @@ with st.sidebar:
     )
 
     st.subheader("📃 Input Content")
-    
-    # Store current input method in session state if not present
-    if 'previous_input_method' not in st.session_state:
-        st.session_state.previous_input_method = "Upload Markdown File"
     
     input_method = st.radio(
         "Choose input method",
@@ -526,6 +596,184 @@ with st.sidebar:
         disabled=not has_input_content(),
         use_container_width=True
     )
+
+
+def get_user_prompt(blog_content, transcript_content=None):
+    """Construct the user prompt for the LLM"""
+    prompt = f"""
+    Create a technical tutorial by filling out the article template {quickstart_template}
+    by integrating content and code from the attached blog content {blog_content}
+    """
+    
+    if transcript_content:
+        prompt += f"\nand incorporating relevant information from the video transcript: {transcript_content}"
+    
+    prompt += f"""
+    {f'Please use "{st.session_state.author_name}" as the author name.' if st.session_state.author_name else ''}
+    {f'Please use "{extract_title(st.session_state.generated_blog)}" as the id.' if st.session_state.custom_title else ''}
+    {'Please use the following categories: ' + ', '.join(st.session_state.selected_categories) if st.session_state.selected_categories else ''}
+            
+    Writing approach:
+    - Professional yet accessible tone
+    - Active voice
+    - Direct reader address
+    - Concise introduction focusing on value proposition
+
+    Notes:
+    - If author name is not provided please add a placeholder like [First Name] [Last Name]
+    - Please have the article title start with gerunds (Building, Performing, etc.)
+    - If mentioning about installing Python packages. Please say something like the following but rephrase:
+      Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
+      such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
+      Packages dropdown on the top right to add additional packages to your notebook.
+    - Please ensure that there is mention of the following in ## Overview: 
+        ### What You'll Need
+        Access to a [Snowflake account](https://signup.snowflake.com/)
+    - In the Resources section, if you don't have the URL, please don't mention about it
+      however if the URL is available in the provided blog please get it and use it
+    - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
+    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
+      You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
+      this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
+      like Happy Coding please make sure to have it as a normal text.
+    - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
+    - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
+      to the 'Articles:' segment of the Conclusion section.
+    - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
+      to the 'Documention' segment of the Conclusion section.
+    - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
+    """
+    
+    return prompt
+
+# Set up the Streamlit page
+st.set_page_config(
+    page_title="Write Quickstarts",
+    page_icon="⏩",
+    layout="wide"
+)
+
+with st.sidebar:
+    st.title("⏩ Write Quickstarts")
+    st.warning(
+        "Transform your technical content into Quick Start tutorials."
+    )
+
+    st.subheader("📃 Input Content")
+    
+    input_method = st.radio(
+        "Choose input method",
+        ["GitHub URL of Notebook", "Upload Markdown File"],
+        help="Select how you want to provide your content"
+    )
+    
+    # Clear content if input method changes
+    if input_method != st.session_state.previous_input_method:
+        st.session_state.blog_content = None
+        st.session_state.github_url = ""
+        if 'uploaded_file' in st.session_state:
+            del st.session_state.uploaded_file
+        st.session_state.previous_input_method = input_method
+        st.rerun()
+    
+    if input_method == "Upload Markdown File":
+        uploaded_file = st.file_uploader(
+            "Upload your content (markdown or notebook file)",
+            type=['md', 'txt', 'ipynb'],
+            help="Upload a file containing your content",
+            key="uploaded_file"
+        )
+        if uploaded_file is not None:
+            if uploaded_file.name.endswith('.ipynb'):
+                notebook_json = json.loads(uploaded_file.getvalue().decode('utf-8'))
+                markdown_exporter = MarkdownExporter()
+                content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
+                st.session_state.blog_content = content
+            else:
+                st.session_state.blog_content = uploaded_file.getvalue().decode('utf-8')
+    else:
+        github_url = st.text_input(
+            "Enter GitHub URL",
+            key="github_url",
+            on_change=on_url_change,
+            placeholder="https://github.com/username/repo/blob/main/file.{md,ipynb}"
+        )
+
+    # YouTube Video section
+    st.subheader("📺 YouTube Video (Optional)")
+    youtube_url = st.text_input(
+        "Enter YouTube URL",
+        key="youtube_url",
+        placeholder="https://www.youtube.com/watch?v=..."
+    )
+
+    if youtube_url and is_valid_youtube_url(youtube_url):
+        progress_bar = st.progress(0)
+        if download_audio(youtube_url, progress_bar):
+            wav_files = find_wav_files(os.getcwd())
+            if wav_files:
+                with st.spinner("📝 Transcribing audio... This may take a few minutes..."):
+                    transcript = transcribe_audio(wav_files[0])
+                    if transcript:
+                        st.session_state.transcript_content = transcript
+                        try:
+                            os.remove(wav_files[0])
+                        except Exception as e:
+                            st.warning(f"Could not remove temporary audio file: {str(e)}")
+    elif youtube_url:
+        st.error("Please enter a valid YouTube URL")
+
+    st.subheader("⚙️ Settings")
+    llm_model = st.selectbox(
+        "Select a model",
+        ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
+    )
+    
+    use_custom_title = st.checkbox('Specify Quickstart Title')
+    if use_custom_title:
+        st.session_state.custom_title = st.text_input(
+            'Enter Quickstart Title',
+            value=st.session_state.custom_title if st.session_state.custom_title else '',
+            help="This will be used to name the output folder and ZIP file"
+        )
+    
+    use_custom_author = st.checkbox('Specify Author Name')
+    if use_custom_author:
+        st.session_state.author_name = st.text_input(
+            'Enter Author Name',
+            value=st.session_state.author_name if st.session_state.author_name else '',
+            help="This will be used in the Author field of the Quickstart template"
+        )
+
+    # Categories section
+    st.subheader("📑 Categories")
+    if st.session_state.blog_content:
+        suggested_categories = identify_categories(st.session_state.blog_content)
+        st.session_state.selected_categories = st.multiselect(
+            "Select categories",
+            options=list(VALID_CATEGORIES.keys()),
+            default=suggested_categories,
+            help="Choose one or more categories that best match the content"
+        )
+
+    # Add Submit button - disabled if no blog content
+    st.button(
+        "Submit",
+        type="primary",
+        on_click=submit_callback,
+        disabled=st.session_state.blog_content is None,
+        use_container_width=True
+    )
+    
+    # Add Reset button - enabled if there's any input content
+    st.button(
+        "Reset All",
+        type="secondary",
+        on_click=reset_callback,
+        disabled=not has_input_content(),
+        use_container_width=True
+    )
+
 
 # Show error message if there is one
 if st.session_state.show_error:
@@ -668,3 +916,4 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
 
         # Reset the submitted state
         st.session_state.submitted = False
+
