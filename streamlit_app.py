@@ -188,6 +188,18 @@ if 'selected_categories' not in st.session_state:
     st.session_state.selected_categories = None
 if 'previous_input_method' not in st.session_state:
     st.session_state.previous_input_method = "Upload Markdown File"
+if 'input_method' not in st.session_state:
+    st.session_state.input_method = "GitHub URL of Notebook"
+if 'llm_model' not in st.session_state:
+    st.session_state.llm_model = "claude-3-5-sonnet-20241022"
+if 'use_custom_title' not in st.session_state:
+    st.session_state.use_custom_title = False
+if 'use_custom_author' not in st.session_state:
+    st.session_state.use_custom_author = False
+if 'is_youtube_processing' not in st.session_state:
+    st.session_state.is_youtube_processing = False
+if 'previous_youtube_url' not in st.session_state:
+    st.session_state.previous_youtube_url = ""
 
 # Verify API keys
 if 'OPENAI_API_KEY' not in st.secrets:
@@ -482,6 +494,12 @@ def reset_callback():
     st.session_state.error_message = ""
     st.session_state.selected_categories = None
     st.session_state.previous_input_method = "Upload Markdown File"
+    st.session_state.input_method = "GitHub URL of Notebook"
+    st.session_state.llm_model = "claude-3-5-sonnet-20241022"
+    st.session_state.use_custom_title = False
+    st.session_state.use_custom_author = False
+    st.session_state.is_youtube_processing = False
+    st.session_state.previous_youtube_url = ""
     
     # Clean up any WAV files
     wav_files = find_wav_files(os.getcwd())
@@ -504,6 +522,42 @@ def submit_callback():
     """Callback function to handle the submit button click"""
     st.session_state.submitted = True
 
+def on_input_method_change():
+    """Handle input method changes"""
+    if st.session_state.input_method != st.session_state.previous_input_method:
+        st.session_state.blog_content = None
+        st.session_state.github_url = ""
+        if 'uploaded_file' in st.session_state:
+            del st.session_state.uploaded_file
+        st.session_state.previous_input_method = st.session_state.input_method
+
+def on_youtube_url_change():
+    """Handle YouTube URL changes to prevent redundant processing"""
+    new_url = st.session_state.youtube_url
+    if (new_url and 
+        not st.session_state.is_youtube_processing and 
+        new_url != st.session_state.previous_youtube_url):
+        
+        st.session_state.previous_youtube_url = new_url
+        st.session_state.is_youtube_processing = True
+        st.session_state.transcript_content = None
+        
+        if is_valid_youtube_url(new_url):
+            progress_bar = st.progress(0)
+            if download_audio(new_url, progress_bar):
+                wav_files = find_wav_files(os.getcwd())
+                if wav_files:
+                    with st.spinner("📝 Transcribing audio... This may take a few minutes..."):
+                        transcript = transcribe_audio(wav_files[0])
+                        if transcript:
+                            st.session_state.transcript_content = transcript
+                            try:
+                                os.remove(wav_files[0])
+                            except Exception as e:
+                                st.warning(f"Could not remove temporary audio file: {str(e)}")
+        
+        st.session_state.is_youtube_processing = False
+
 def on_url_change():
     """Handle GitHub URL changes"""
     st.session_state.show_error = False
@@ -518,6 +572,20 @@ def on_url_change():
         else:
             st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file, or a repository containing such files."
             st.session_state.show_error = True
+
+def on_settings_change():
+    """Handle settings changes"""
+    # Update custom title visibility
+    if st.session_state.use_custom_title != st.session_state.get('previous_use_custom_title', False):
+        st.session_state.previous_use_custom_title = st.session_state.use_custom_title
+        if not st.session_state.use_custom_title:
+            st.session_state.custom_title = None
+            
+    # Update custom author visibility
+    if st.session_state.use_custom_author != st.session_state.get('previous_use_custom_author', False):
+        st.session_state.previous_use_custom_author = st.session_state.use_custom_author
+        if not st.session_state.use_custom_author:
+            st.session_state.author_name = None
 
 def get_user_prompt(blog_content, transcript_content=None):
     """Construct the user prompt for the LLM"""
@@ -574,30 +642,22 @@ st.set_page_config(
     layout="wide"
 )
 
+# Main UI implementation
 with st.sidebar:
     st.title("⏩ Write Quickstarts")
-    st.warning(
-        "Transform your technical content into Quick Start tutorials."
-    )
+    st.warning("Transform your technical content into Quick Start tutorials.")
 
     st.subheader("📃 Input Content")
     
-    input_method = st.radio(
+    st.radio(
         "Choose input method",
         ["GitHub URL of Notebook", "Upload Markdown File"],
+        key="input_method",
+        on_change=on_input_method_change,
         help="Select how you want to provide your content"
     )
     
-    # Clear content if input method changes
-    if input_method != st.session_state.previous_input_method:
-        st.session_state.blog_content = None
-        st.session_state.github_url = ""
-        if 'uploaded_file' in st.session_state:
-            del st.session_state.uploaded_file
-        st.session_state.previous_input_method = input_method
-        st.rerun()
-    
-    if input_method == "Upload Markdown File":
+    if st.session_state.input_method == "Upload Markdown File":
         uploaded_file = st.file_uploader(
             "Upload your content (markdown or notebook file)",
             type=['md', 'txt', 'ipynb'],
@@ -613,56 +673,55 @@ with st.sidebar:
             else:
                 st.session_state.blog_content = uploaded_file.getvalue().decode('utf-8')
     else:
-        github_url = st.text_input(
+        st.text_input(
             "Enter GitHub URL",
             key="github_url",
             on_change=on_url_change,
             placeholder="https://github.com/username/repo/blob/main/file.{md,ipynb}"
         )
 
-    # YouTube Video section
+    # YouTube Video section with state management
     st.subheader("📺 YouTube Video (Optional)")
-    youtube_url = st.text_input(
+    st.text_input(
         "Enter YouTube URL",
         key="youtube_url",
+        on_change=on_youtube_url_change,
         placeholder="https://www.youtube.com/watch?v=..."
     )
 
-    if youtube_url and is_valid_youtube_url(youtube_url):
-        progress_bar = st.progress(0)
-        if download_audio(youtube_url, progress_bar):
-            wav_files = find_wav_files(os.getcwd())
-            if wav_files:
-                with st.spinner("📝 Transcribing audio... This may take a few minutes..."):
-                    transcript = transcribe_audio(wav_files[0])
-                    if transcript:
-                        st.session_state.transcript_content = transcript
-                        try:
-                            os.remove(wav_files[0])
-                        except Exception as e:
-                            st.warning(f"Could not remove temporary audio file: {str(e)}")
-    elif youtube_url:
-        st.error("Please enter a valid YouTube URL")
-
+    # Settings section with state management
     st.subheader("⚙️ Settings")
-    llm_model = st.selectbox(
+    st.selectbox(
         "Select a model",
-        ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022")
+        ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022"),
+        key="llm_model"
     )
     
-    use_custom_title = st.checkbox('Specify Quickstart Title')
-    if use_custom_title:
-        st.session_state.custom_title = st.text_input(
+    st.checkbox(
+        'Specify Quickstart Title',
+        key="use_custom_title",
+        on_change=on_settings_change
+    )
+    
+    if st.session_state.use_custom_title:
+        st.text_input(
             'Enter Quickstart Title',
             value=st.session_state.custom_title if st.session_state.custom_title else '',
+            key="custom_title",
             help="This will be used to name the output folder and ZIP file"
         )
     
-    use_custom_author = st.checkbox('Specify Author Name')
-    if use_custom_author:
-        st.session_state.author_name = st.text_input(
+    st.checkbox(
+        'Specify Author Name',
+        key="use_custom_author",
+        on_change=on_settings_change
+    )
+    
+    if st.session_state.use_custom_author:
+        st.text_input(
             'Enter Author Name',
             value=st.session_state.author_name if st.session_state.author_name else '',
+            key="author_name",
             help="This will be used in the Author field of the Quickstart template"
         )
 
@@ -700,7 +759,7 @@ if st.session_state.show_error:
     st.error(st.session_state.error_message)
 
 if not st.session_state.blog_content:
-    if input_method == "Upload Markdown File":
+    if st.session_state.input_method == "Upload Markdown File":
         st.info("Please upload your content file in the sidebar!", icon="👈")
     else:
         st.info("Please enter a GitHub URL in the sidebar!", icon="👈")
@@ -714,7 +773,7 @@ else:
     # Display input content
     with col1:
         # Dynamic header based on input method
-        header_text = "Uploaded Markdown" if input_method == "Upload Markdown File" else "Notebook Markdown"
+        header_text = "Uploaded Markdown" if st.session_state.input_method == "Upload Markdown File" else "Notebook Markdown"
         st.subheader(header_text)
         st.text_area(
             "Preview",
@@ -723,7 +782,7 @@ else:
         )
         
         filename = "content.md"
-        if input_method == "GitHub URL of Notebook" and st.session_state.github_url:
+        if st.session_state.input_method == "GitHub URL of Notebook" and st.session_state.github_url:
             filename = os.path.basename(st.session_state.github_url)
         
         st.download_button(
@@ -772,20 +831,20 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             time.sleep(0.1)
             progress_bar.progress(percent, text=f"Generating Quickstarts Content... {percent}%")
 
-        if llm_model == "o1-mini":
+        if st.session_state.llm_model == "o1-mini":
             client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
             completion = client.chat.completions.create(
-                model=llm_model,
+                model=st.session_state.llm_model,
                 messages=[
                     {"role": "user", "content": user_prompt}
                 ]
             )
             tutorial_content = completion.choices[0].message.content
 
-        elif llm_model == "gpt-4-turbo":
+        elif st.session_state.llm_model == "gpt-4-turbo":
             client = OpenAI(api_key=st.secrets['OPENAI_API_KEY'])
             completion = client.chat.completions.create(
-                model=llm_model,
+                model=st.session_state.llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -793,10 +852,10 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             )
             tutorial_content = completion.choices[0].message.content
 
-        elif llm_model == "claude-3-5-sonnet-20241022":
+        elif st.session_state.llm_model == "claude-3-5-sonnet-20241022":
             client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
             completion = client.messages.create(
-                model=llm_model,
+                model=st.session_state.llm_model,
                 max_tokens=4000,
                 temperature=0,
                 system=system_prompt,
@@ -836,4 +895,3 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
 
         # Reset the submitted state
         st.session_state.submitted = False
-
