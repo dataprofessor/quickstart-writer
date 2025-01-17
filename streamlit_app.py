@@ -647,12 +647,6 @@ def get_user_prompt(blog_content, transcript_content=None):
     
     return prompt
 
-# Set up the Streamlit page
-st.set_page_config(
-    page_title="Write Quickstarts",
-    page_icon="⏩",
-    layout="wide"
-)
 
 with st.sidebar:
     st.title("⏩ Write Quickstarts")
