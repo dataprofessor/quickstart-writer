@@ -1,3 +1,4 @@
+# Import statements and license headers
 import streamlit as st
 import requests
 import os 
@@ -62,47 +63,35 @@ VALID_CATEGORIES = {
 }
 
 # Initialize session state variables
-if 'blog_content' not in st.session_state:
-    st.session_state.blog_content = None
-if 'generated_blog' not in st.session_state:
-    st.session_state.generated_blog = None
-if 'zip_data' not in st.session_state:
-    st.session_state.zip_data = None
-if 'submitted' not in st.session_state:
-    st.session_state.submitted = False
-if 'custom_title' not in st.session_state:
-    st.session_state.custom_title = None
-if 'author_name' not in st.session_state:
-    st.session_state.author_name = None
-if 'github_url' not in st.session_state:
-    st.session_state.github_url = ""
-if 'youtube_url' not in st.session_state:
-    st.session_state.youtube_url = ""
-if 'transcript_content' not in st.session_state:
-    st.session_state.transcript_content = None
-if 'show_error' not in st.session_state:
-    st.session_state.show_error = False
-if 'error_message' not in st.session_state:
-    st.session_state.error_message = ""
-if 'selected_categories' not in st.session_state:
-    st.session_state.selected_categories = None
-if 'previous_input_method' not in st.session_state:
-    st.session_state.previous_input_method = "Upload Markdown File"
+def init_session_state():
+    if 'blog_content' not in st.session_state:
+        st.session_state.blog_content = None
+    if 'generated_blog' not in st.session_state:
+        st.session_state.generated_blog = None
+    if 'zip_data' not in st.session_state:
+        st.session_state.zip_data = None
+    if 'submitted' not in st.session_state:
+        st.session_state.submitted = False
+    if 'custom_title' not in st.session_state:
+        st.session_state.custom_title = None
+    if 'author_name' not in st.session_state:
+        st.session_state.author_name = None
+    if 'github_url' not in st.session_state:
+        st.session_state.github_url = ""
+    if 'youtube_url' not in st.session_state:
+        st.session_state.youtube_url = ""
+    if 'transcript_content' not in st.session_state:
+        st.session_state.transcript_content = None
+    if 'show_error' not in st.session_state:
+        st.session_state.show_error = False
+    if 'error_message' not in st.session_state:
+        st.session_state.error_message = ""
+    if 'selected_categories' not in st.session_state:
+        st.session_state.selected_categories = None
+    if 'previous_input_method' not in st.session_state:
+        st.session_state.previous_input_method = "Upload Markdown File"
 
-# Verify API keys
-if 'OPENAI_API_KEY' not in st.secrets:
-    st.error("Please set your OpenAI API key in Streamlit secrets as OPENAI_API_KEY")
-    st.stop()
-if 'ANTHROPIC_API_KEY' not in st.secrets:
-    st.error("Please set your Anthropic API key in Streamlit secrets as ANTHROPIC_API_KEY")
-    st.stop()
-if 'AAI_KEY' not in st.secrets:
-    st.error("Please set your AssemblyAI API key in Streamlit secrets as AAI_KEY")
-    st.stop()
-
-# Initialize AssemblyAI client
-aai.settings.api_key = st.secrets['AAI_KEY']
-
+# GitHub-related functions
 def extract_github_data(url):
     """Extract repository data from GitHub URL"""
     headers = {
@@ -124,53 +113,58 @@ def extract_github_data(url):
                 return None
     return None
 
-def construct_raw_github_url(json_data):
-    """Construct raw GitHub URL from repository data"""
-    if isinstance(json_data, str):
-        data = json.loads(json_data)
-    else:
-        data = json_data
-    
-    repo_owner = data['payload']['repo']['ownerLogin']
-    repo_name = data['payload']['repo']['name']
-    branch = data['payload']['repo']['defaultBranch']
-    
-    tree_items = data['payload']['tree']['items']
-    target_files = [item['path'] for item in tree_items 
-                   if item['path'].endswith(('.ipynb', '.md'))]
-    
-    if target_files:
-        # Prefer .ipynb files over .md files if both exist
-        target_file = next((f for f in target_files if f.endswith('.ipynb')), target_files[0])
-        return f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/refs/heads/{branch}/{target_file}"
-    return None
-
 def process_github_content(github_url):
-    """Process content from GitHub URL"""
+    """Process content from GitHub URL, handling both direct file links and repository URLs"""
     if not is_valid_github_url(github_url):
         return None, "Invalid GitHub URL format"
         
     try:
-        # Handle repository URL
+        # For repository URLs (not direct file links)
         if not (github_url.endswith('.ipynb') or github_url.endswith('.md')):
             json_data = extract_github_data(github_url)
             if not json_data:
                 return None, "Failed to extract repository data"
                 
-            raw_url = construct_raw_github_url(json_data)
-            if not raw_url:
+            # Parse repository information
+            repo_owner = json_data['payload']['repo']['ownerLogin']
+            repo_name = json_data['payload']['repo']['name']
+            branch = json_data['payload']['repo']['defaultBranch']
+            
+            # Find suitable files
+            tree_items = json_data['payload']['tree']['items']
+            target_files = [item['path'] for item in tree_items 
+                          if item['path'].endswith(('.ipynb', '.md'))]
+            
+            if not target_files:
                 return None, "No suitable .ipynb or .md file found in repository"
                 
-            content = get_file_content(raw_url)
+            # Prefer .ipynb files over .md files
+            target_file = next((f for f in target_files if f.endswith('.ipynb')), target_files[0])
+            raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/refs/heads/{branch}/{target_file}"
         else:
-            # Handle direct file link
-            content = get_file_content(github_url)
+            # Handle direct file links
+            parsed = urlparse(github_url)
+            path_parts = parsed.path.split('/')
             
-        if not content:
-            return None, "Failed to fetch content from GitHub"
+            if 'blob' in path_parts:
+                blob_index = path_parts.index('blob')
+                path_parts.pop(blob_index)
+                path_parts.insert(blob_index, 'refs/heads')
             
-        return content, None
+            raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
         
+        # Fetch and process content
+        response = requests.get(raw_url)
+        response.raise_for_status()
+        
+        if raw_url.endswith('.ipynb'):
+            notebook_json = json.loads(response.content)
+            markdown_exporter = MarkdownExporter()
+            content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
+            return content, None
+        else:
+            return response.content.decode('utf-8'), None
+            
     except Exception as e:
         return None, f"Error processing GitHub content: {str(e)}"
 
@@ -185,94 +179,20 @@ def is_valid_github_url(url):
             return False
             
         path_parts = parsed.path.split('/')
-        if len(path_parts) < 3:
+        if len(path_parts) < 3:  # Need at least owner/repo
             return False
             
         # Check for direct file link
         if path_parts[-1].endswith(('.ipynb', '.md')):
             return True
             
-        # Check for repository URL with tree/blob
-        return "tree" in path_parts or "blob" in path_parts
+        # Check for repository URL
+        return len(path_parts) >= 4 and path_parts[3] in ['tree', 'blob']
         
     except:
         return False
 
-def get_file_content(github_url):
-    """Fetch content from GitHub URL"""
-    try:
-        # First try to get content using repository approach
-        if not github_url.endswith(('.ipynb', '.md')):
-            json_data = extract_github_data(github_url)
-            if json_data:
-                raw_url = construct_raw_github_url(json_data)
-                if not raw_url:
-                    raise ValueError("No suitable .ipynb or .md file found in repository")
-            else:
-                raise ValueError("Failed to extract repository data")
-        else:
-            # Handle direct file link
-            parsed = urlparse(github_url)
-            path_parts = parsed.path.split('/')
-            
-            if 'blob' in path_parts:
-                blob_index = path_parts.index('blob')
-                path_parts.pop(blob_index)
-                path_parts.insert(blob_index, 'refs/heads')
-            
-            raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
-        
-        response = requests.get(raw_url)
-        response.raise_for_status()
-        
-        filename = os.path.basename(raw_url)
-        if filename.endswith('.ipynb'):
-            notebook_json = json.loads(response.content)
-            markdown_exporter = MarkdownExporter()
-            content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
-            return content
-        else:
-            return response.content.decode('utf-8')
-        
-    except Exception as e:
-        st.session_state.error_message = f"Error: {str(e)}"
-        st.session_state.show_error = True
-        return None
-
-def identify_categories(content):
-    """Identify categories based on the content"""
-    content_lower = content.lower()
-    scores = defaultdict(float)
-    
-    for category, data in VALID_CATEGORIES.items():
-        matches = 0
-        for keyword in data['keywords']:
-            if ' ' not in keyword:
-                pattern = r'\b' + re.escape(keyword) + r'\b'
-            else:
-                pattern = re.escape(keyword)
-            
-            if re.search(pattern, content_lower):
-                matches += 1
-        
-        if matches > 0:
-            scores[category] = matches * data['weight']
-    
-    matched_categories = []
-    if scores:
-        max_score = max(scores.values())
-        threshold = max_score * 0.3
-        matched_categories = [cat for cat, score in scores.items() 
-                            if score >= threshold]
-        
-        if len(matched_categories) >= 2 and 'featured' in VALID_CATEGORIES:
-            matched_categories.append('featured')
-    
-    if not matched_categories:
-        matched_categories = ['getting-started']
-    
-    return matched_categories
-
+# YouTube-related functions
 def is_valid_youtube_url(url):
     """Check if the URL is a valid YouTube or YouTube Shorts URL"""
     patterns = [
@@ -343,6 +263,7 @@ def transcribe_audio(wave_file):
         st.error(f"Error during transcription: {str(e)}")
         return None
 
+# Content processing functions
 def update_content_state():
     """Update the application state with new content"""
     st.session_state.show_error = False
@@ -373,6 +294,41 @@ def has_input_content():
             bool(st.session_state.github_url.strip()) or 
             'uploaded_file' in st.session_state)
 
+def identify_categories(content):
+    """Identify categories based on the content"""
+    content_lower = content.lower()
+    scores = defaultdict(float)
+    
+    for category, data in VALID_CATEGORIES.items():
+        matches = 0
+        for keyword in data['keywords']:
+            if ' ' not in keyword:
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+            else:
+                pattern = re.escape(keyword)
+            
+            if re.search(pattern, content_lower):
+                matches += 1
+        
+        if matches > 0:
+            scores[category] = matches * data['weight']
+    
+    matched_categories = []
+    if scores:
+        max_score = max(scores.values())
+        threshold = max_score * 0.3
+        matched_categories = [cat for cat, score in scores.items() 
+                            if score >= threshold]
+        
+        if len(matched_categories) >= 2 and 'featured' in VALID_CATEGORIES:
+            matched_categories.append('featured')
+    
+    if not matched_categories:
+        matched_categories = ['getting-started']
+    
+    return matched_categories
+
+# File handling functions
 def extract_title(content):
     """Extract the article title from the generated content or use custom title"""
     if st.session_state.custom_title:
@@ -505,12 +461,30 @@ def get_user_prompt(blog_content, transcript_content=None):
     
     return prompt
 
+
+# Verify API keys
+if 'OPENAI_API_KEY' not in st.secrets:
+    st.error("Please set your OpenAI API key in Streamlit secrets as OPENAI_API_KEY")
+    st.stop()
+if 'ANTHROPIC_API_KEY' not in st.secrets:
+    st.error("Please set your Anthropic API key in Streamlit secrets as ANTHROPIC_API_KEY")
+    st.stop()
+if 'AAI_KEY' not in st.secrets:
+    st.error("Please set your AssemblyAI API key in Streamlit secrets as AAI_KEY")
+    st.stop()
+
+# Initialize AssemblyAI client
+aai.settings.api_key = st.secrets['AAI_KEY']
+
 # Set up the Streamlit page
 st.set_page_config(
     page_title="Write Quickstarts",
     page_icon="⏩",
     layout="wide"
 )
+
+# Initialize session state
+init_session_state()
 
 # Main UI
 with st.sidebar:
