@@ -14,6 +14,7 @@ from openai import OpenAI
 from collections import defaultdict
 import yt_dlp
 import assemblyai as aai
+from bs4 import BeautifulSoup
 
 # Define valid categories at module level
 VALID_CATEGORIES = {
@@ -100,6 +101,119 @@ if 'AAI_KEY' not in st.secrets:
 # Initialize AssemblyAI client
 aai.settings.api_key = st.secrets['AAI_KEY']
 
+def extract_github_data(url):
+    """Extract repository data from GitHub page"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        script_tag = soup.find('script', attrs={
+            'type': 'application/json',
+            'data-target': 'react-app.embeddedData'
+        })
+        
+        if script_tag:
+            try:
+                return json.loads(script_tag.string)
+            except json.JSONDecodeError:
+                return "Error: Could not parse JSON data"
+        else:
+            return "Error: Script tag not found"
+    else:
+        return f"Error: Failed to fetch page (Status code: {response.status_code})"
+
+def is_valid_github_url(url):
+    """Validate GitHub URL for repository or direct file links"""
+    if not url:
+        return False
+    
+    try:
+        parsed = urlparse(url)
+        path_parts = parsed.path.split('/')
+        
+        # Basic GitHub URL validation
+        if parsed.netloc != "github.com" or len(path_parts) < 3:
+            return False
+            
+        # Case 1: Direct file link validation
+        if "blob" in path_parts:
+            return path_parts[-1].endswith('.ipynb') or path_parts[-1].endswith('.md')
+            
+        # Case 2: Repository link validation
+        if "tree" in path_parts:
+            return True
+            
+        return False
+    except:
+        return False
+
+def get_raw_github_url(github_url, json_data=None):
+    """Convert GitHub URL to raw content URL"""
+    parsed = urlparse(github_url)
+    path_parts = parsed.path.split('/')
+    
+    # Case 1: Direct file link
+    if "blob" in path_parts:
+        blob_index = path_parts.index('blob')
+        path_parts[blob_index] = 'raw'
+        return f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
+    
+    # Case 2: Repository link
+    elif "tree" in path_parts and json_data:
+        repo_owner = json_data['payload']['repo']['ownerLogin']
+        repo_name = json_data['payload']['repo']['name']
+        branch = json_data['payload']['repo']['defaultBranch']
+        
+        # Find the .ipynb file path
+        tree_items = json_data['payload']['tree']['items']
+        ipynb_path = None
+        for item in tree_items:
+            if item['path'].endswith('.ipynb'):
+                ipynb_path = item['path']
+                break
+                
+        if ipynb_path:
+            return f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/{ipynb_path}"
+    
+    return None
+
+def get_file_content(github_url):
+    """Fetch content from GitHub URL"""
+    try:
+        # Case 1: Direct file link
+        if "blob" in github_url:
+            raw_url = get_raw_github_url(github_url)
+            
+        # Case 2: Repository link
+        elif "tree" in github_url:
+            json_data = extract_github_data(github_url)
+            if isinstance(json_data, str) and "Error" in json_data:
+                raise Exception(json_data)
+            raw_url = get_raw_github_url(github_url, json_data)
+            
+        if not raw_url:
+            raise Exception("Could not generate raw URL")
+            
+        response = requests.get(raw_url)
+        response.raise_for_status()
+        
+        filename = os.path.basename(raw_url)
+        if filename.endswith('.ipynb'):
+            notebook_json = json.loads(response.content)
+            markdown_exporter = MarkdownExporter()
+            content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
+            return content
+        else:
+            return response.content.decode('utf-8')
+            
+    except Exception as e:
+        st.session_state.error_message = f"Error: {str(e)}"
+        st.session_state.show_error = True
+        return None
+
 def identify_categories(content):
     """Identify categories based on the content."""
     content_lower = content.lower()
@@ -134,227 +248,6 @@ def identify_categories(content):
     
     return matched_categories
 
-# Template for the quickstart guide
-quickstart_template = '''
-author: [Your Name]
-id: [unique-identifier-with-dash]
-summary: [One to two sentences describing what this guide covers]
-categories: [comma-separated list: e.g., featured, getting-started, data-engineering]
-environments: web
-status: Published
-feedback link: https://github.com/Snowflake-Labs/sfguides/issues
-tags: [Comma-separated list of relevant technologies and concepts]
-
-# [Article Title]
-<!-- ------------------------ -->
-## Overview
-Duration: [Minutes as an integer only]
-
-[One to two paragraphs introducing the topic and what will be accomplished]
-
-### What You'll Learn
-- [Key learning objective 1]
-- [Key learning objective 2]
-- [Key learning objective 3]
-- [Add more as needed]
-
-### What You'll Build
-[Describe the end result/application/solution the reader will create]
-
-[Optional: Include screenshot or diagram of final result]
-
-### Prerequisites
-- [Required account/access/subscription]
-- [Required software/tools]
-- [Required knowledge/skills]
-- [Other requirements]
-
-<!-- ------------------------ -->
-## Setup
-Duration: [X]
-
-### [Setup Step 1 - e.g., Environment Configuration]
-[Detailed instructions]
-
-```[language]
-[code snippet if applicable]
-```
-
-### [Setup Step 2 - e.g., Installation]
-[Detailed instructions]
-
-> aside positive
-> IMPORTANT:
-> - [Critical note 1]
-> - [Critical note 2]
-
-<!-- ------------------------ -->
-## [Main Content Section 1]
-Duration: [X]
-
-### [Subsection 1.1]
-[Detailed explanation]
-
-```[language]
-[code snippet if applicable]
-```
-
-### [Subsection 1.2]
-[Detailed explanation]
-
-[Include screenshots/diagrams where helpful]
-
-<!-- ------------------------ -->
-## [Main Content Section 2]
-Duration: [X]
-
-[Repeat structure as needed for additional main sections]
-
-## Conclusion and Resources
-Duration: [X]
-
-### What You Learned
-- [Key takeaway 1]
-- [Key takeaway 2]
-- [Key takeaway 3]
-
-### Related Resources
-
-Articles:
-- [Resource link 1 with description]
-- [Resource link 2 with description]
-- [Resource link 3 with description]
-
-Documentation:
-- [Relevant documentation link 1]
-- [Relevant documentation link 2]
-
-Additional Reading:
-- [Blog/article link 1]
-- [Blog/article link 2]
-'''
-
-def is_valid_youtube_url(url):
-    """Check if the URL is a valid YouTube or YouTube Shorts URL"""
-    patterns = [
-        r'https?:\/\/(?:www\.)?youtu\.be\/([a-zA-Z0-9_-]+)(?:\?.*)?$',  # Short URLs
-        r'https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:&.*)?$',  # Regular watch URLs
-        r'https?:\/\/(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)(?:\?.*)?$'  # Shorts URLs
-    ]
-    
-    for pattern in patterns:
-        if re.match(pattern, url.strip()):
-            return True
-    return False
-
-def download_audio(url, progress_bar):
-    """Download YouTube video audio with progress tracking"""
-    def progress_hook(d):
-        if d['status'] == 'downloading':
-            total_bytes = d.get('total_bytes')
-            downloaded_bytes = d.get('downloaded_bytes', 0)
-            
-            if total_bytes:
-                progress = (downloaded_bytes / total_bytes) * 100
-                progress_bar.progress(int(progress), text=f"Downloading... {int(progress)}%")
-        elif d['status'] == 'finished':
-            progress_bar.progress(100, text="Converting to WAV...")
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
-            'preferredquality': '192',
-        }],
-        'outtmpl': '%(title)s.%(ext)s',
-        'verbose': True,
-        'progress_hooks': [progress_hook],
-    }
-
-    try:
-        progress_bar.progress(0, text="Starting download...")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        progress_bar.progress(100, text="Download complete!")
-        time.sleep(1)
-        progress_bar.empty()
-        return True
-    except Exception as e:
-        progress_bar.error(f"Error: {str(e)}")
-        return False
-
-def find_wav_files(directory):
-    """Find WAV files in directory"""
-    wav_files = []
-    for root, _, files in os.walk(directory):
-        for file in files:
-            if file.lower().endswith('.wav'):
-                wav_files.append(os.path.join(root, file))
-    return wav_files
-
-@st.cache_resource
-def transcribe_audio(wave_file):
-    """Transcribe audio file using AssemblyAI"""
-    try:
-        transcriber = aai.Transcriber()
-        transcript = transcriber.transcribe(wave_file)
-        return transcript.text if transcript else None
-    except Exception as e:
-        st.error(f"Error during transcription: {str(e)}")
-        return None
-
-# GitHub URL handling functions
-def is_valid_github_url(url):
-    """Validate GitHub URL for Jupyter notebook or Markdown file"""
-    if not url:
-        return False
-    
-    try:
-        parsed = urlparse(url)
-        path_parts = parsed.path.split('/')
-        return (
-            parsed.netloc == "github.com" and
-            len(path_parts) >= 3 and
-            ("blob" in parsed.path or "tree" in parsed.path) and
-            (path_parts[-1].endswith('.ipynb') or path_parts[-1].endswith('.md'))
-        )
-    except:
-        return False
-
-def get_file_content(github_url):
-    """Fetch content from GitHub"""
-    try:
-        parsed = urlparse(github_url)
-        path_parts = parsed.path.split('/')
-        
-        if 'blob' in path_parts:
-            blob_index = path_parts.index('blob')
-            path_parts.pop(blob_index)
-            path_parts.insert(blob_index, 'refs/heads')
-        elif 'tree' in path_parts:
-            tree_index = path_parts.index('tree')
-            path_parts.pop(tree_index)
-            path_parts.insert(tree_index, 'refs/heads')
-        
-        raw_url = f"https://raw.githubusercontent.com{'/'.join(path_parts)}"
-        response = requests.get(raw_url)
-        response.raise_for_status()
-        
-        filename = os.path.basename(raw_url)
-        if filename.endswith('.ipynb'):
-            notebook_json = json.loads(response.content)
-            markdown_exporter = MarkdownExporter()
-            content, _ = markdown_exporter.from_notebook_node(nbformat.reads(json.dumps(notebook_json), as_version=4))
-            return content
-        else:
-            return response.content.decode('utf-8')
-        
-    except Exception as e:
-        st.session_state.error_message = f"Error: {str(e)}"
-        st.session_state.show_error = True
-        return None
-
 def on_url_change():
     """Handle GitHub URL changes"""
     st.session_state.show_error = False
@@ -367,7 +260,7 @@ def on_url_change():
             if content:
                 st.session_state.blog_content = content
         else:
-            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file."
+            st.session_state.error_message = "Invalid GitHub URL. Please provide a valid GitHub URL pointing to a Jupyter notebook (.ipynb) or Markdown (.md) file, or a repository containing such files."
             st.session_state.show_error = True
 
 def extract_title(content):
