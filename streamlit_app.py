@@ -612,8 +612,8 @@ def get_user_prompt(blog_content, transcript_content=None):
     - If author name is not provided please add a placeholder like [First Name] [Last Name]
     - Please have the article title start with gerunds (Building, Performing, etc.)
     - In ## Setup section, please say something like: Firstly, to follow along with this quickstart, 
-      you can download the [pre-made notebook](replace this with the GitHub repo link in provided in
-      the sidebar) from the `Snowflake-Labs`/`snowflake-demo-notebooks` GitHub repo.
+      you can download the [pre-made notebook]({st.session_state.github_url}) from the 
+      `Snowflake-Labs`/`snowflake-demo-notebooks` GitHub repo.
     - If mentioning about installing Python packages. Please say something like the following but rephrase:
       Notebooks comes pre-installed with common Python libraries for data science and machine learning, 
       such as numpy, pandas, matplotlib, and more! If you are looking to use other packages, click on the 
