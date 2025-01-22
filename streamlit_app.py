@@ -635,6 +635,7 @@ def get_user_prompt(blog_content, transcript_content=None):
     - If provided blog contains mention of Streamlit please add [Streamlit Documentation](https://docs.streamlit.io/)
       to the 'Documention' segment of the Conclusion section.
     - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
+    - Please add in comment an example of embedding images in the article, which looks like: ![image](assets/img01.PNG)
     """
     
     return prompt
