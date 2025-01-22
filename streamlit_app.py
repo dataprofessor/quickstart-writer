@@ -628,6 +628,7 @@ def get_user_prompt(blog_content, transcript_content=None):
       You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
       this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
       like Happy Coding please make sure to have it as a normal text.
+    - For the "What you Learned" section please write in past tense like built, created, analyzed, etc.
     - Make sure that the generated output don't have enclosing ``` symbols at its top-most and bottom-post.
     - Please see if you can include links from the provided input blog that starts with https://docs.snowflake.com/en
       to the 'Articles:' segment of the Conclusion section.
