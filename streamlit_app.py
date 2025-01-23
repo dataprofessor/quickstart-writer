@@ -137,7 +137,7 @@ Duration: [X]
 
 [Repeat structure as needed for additional main sections]
 
-## Conclusion and Resources
+## Conclusion And Resources
 Duration: [X]
 
 ### What You Learned
@@ -610,7 +610,7 @@ def get_user_prompt(blog_content, transcript_content=None):
 
     Notes:
     - If author name is not provided please add a placeholder like [First Name] [Last Name]
-    - Please have the article title start with gerunds (Building, Performing, etc.)
+    - Please have the article title start with something like Build, Perform, etc.)
     - In ## Setup section, please say something like: Firstly, to follow along with this quickstart, 
       you can download the [pre-made notebook]({st.session_state.github_url}) from the 
       `Snowflake-Labs`/`snowflake-demo-notebooks` GitHub repo.
@@ -624,7 +624,7 @@ def get_user_prompt(blog_content, transcript_content=None):
     - In the Resources section, if you don't have the URL, please don't mention about it
       however if the URL is available in the provided blog please get it and use it
     - For the Duration, please give an estimate for reading and completing the task mentioned in each section.
-    - In the Conclusion section, please start with a concluding remark that begins with 'Congratulations! 
+    - In the "Conclusion And Resources" section, please start with a concluding remark that begins with 'Congratulations! 
       You've successfully' followed by 1-2 sentence summary of what was built in this tutorial. Please have
       this be the first paragraph of the Conclusion section prior to any sub-sections. For any closing remarks 
       like Happy Coding please make sure to have it as a normal text.
