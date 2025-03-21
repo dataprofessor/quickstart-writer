@@ -857,7 +857,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             )
             tutorial_content = completion.choices[0].message.content
 
-        elif st.session_state.llm_model == "claude-3-5-sonnet-20241022":
+        elif st.session_state.llm_model == "claude-3-7-sonnet-20250219":
             client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
             completion = client.messages.create(
                 model=st.session_state.llm_model,
