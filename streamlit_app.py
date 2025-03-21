@@ -861,7 +861,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
             client = anthropic.Anthropic(api_key=st.secrets['ANTHROPIC_API_KEY'])
             completion = client.messages.create(
                 model=st.session_state.llm_model,
-                max_tokens=8000,
+                max_tokens=80000,
                 temperature=0,
                 system=system_prompt,
                 messages=[
