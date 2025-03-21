@@ -191,7 +191,7 @@ if 'previous_input_method' not in st.session_state:
 if 'input_method' not in st.session_state:
     st.session_state.input_method = "GitHub URL of Notebook"
 if 'llm_model' not in st.session_state:
-    st.session_state.llm_model = "claude-3-5-sonnet-20241022"
+    st.session_state.llm_model = "claude-3-7-sonnet-20250219"
 if 'use_custom_title' not in st.session_state:
     st.session_state.use_custom_title = False
 if 'use_custom_author' not in st.session_state:
@@ -495,7 +495,7 @@ def reset_callback():
     st.session_state.selected_categories = None
     st.session_state.previous_input_method = "Upload Markdown File"
     st.session_state.input_method = "GitHub URL of Notebook"
-    st.session_state.llm_model = "claude-3-5-sonnet-20241022"
+    st.session_state.llm_model = "claude-3-7-sonnet-20250219"
     st.session_state.use_custom_title = False
     st.session_state.use_custom_author = False
     st.session_state.is_youtube_processing = False
@@ -698,7 +698,7 @@ with st.sidebar:
     st.subheader("⚙️ Settings")
     st.selectbox(
         "Select a model",
-        ("o1-mini", "gpt-4-turbo", "claude-3-5-sonnet-20241022"),
+        ("o1-mini", "gpt-4-turbo", "claude-3-7-sonnet-20250219"),
         key="llm_model"
     )
     
