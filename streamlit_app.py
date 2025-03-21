@@ -864,6 +864,7 @@ if st.session_state.blog_content is not None and st.session_state.submitted:
                 max_tokens=25000,
                 temperature=0,
                 system=system_prompt,
+                stream=True,
                 messages=[
                     {"role": "user", "content": user_prompt}
                 ]
