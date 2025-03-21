@@ -636,6 +636,8 @@ def get_user_prompt(blog_content, transcript_content=None):
       to the 'Documention' segment of the Conclusion section.
     - Add [Snowflake Documentation](https://docs.snowflake.com/) to the 'Documention' segment of the Conclusion section.
     - Please add in comment an example of embedding images in the article, which looks like: ![image](assets/img01.PNG)
+    - Please do not return an output that mentions something like I'll create a technical tutorial based on the provided 
+      content, following your guidelines.
     """
     
     return prompt
