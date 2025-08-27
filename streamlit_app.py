@@ -736,7 +736,7 @@ with st.sidebar:
         )
 
     # Categories section
-    st.subheader("📑 Categories")
+    st.subheader(":material/category: Categories")
     if st.session_state.blog_content:
         suggested_categories = identify_categories(st.session_state.blog_content)
         st.session_state.selected_categories = st.multiselect(
