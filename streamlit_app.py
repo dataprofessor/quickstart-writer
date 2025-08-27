@@ -657,7 +657,7 @@ with st.sidebar:
     st.title(":blue[:material/edit_note:] Write Quickstarts")
     st.warning("Transform your technical content into Quick Start tutorials.")
 
-    st.subheader("📃 Input Content")
+    st.subheader(":material/input: Input Content")
     
     st.radio(
         "Choose input method",
