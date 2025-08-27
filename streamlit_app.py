@@ -654,7 +654,7 @@ st.set_page_config(
 
 # Main UI implementation
 with st.sidebar:
-    st.title("⏩ Write Quickstarts")
+    st.title(":blue[:material/edit_note:] Write Quickstarts")
     st.warning("Transform your technical content into Quick Start tutorials.")
 
     st.subheader("📃 Input Content")
