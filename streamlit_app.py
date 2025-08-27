@@ -648,7 +648,7 @@ def get_user_prompt(blog_content, transcript_content=None):
 # Set up the Streamlit page
 st.set_page_config(
     page_title="Write Quickstarts",
-    page_icon="⏩",
+    page_icon=":material/input:",
     layout="wide"
 )
 
@@ -691,7 +691,7 @@ with st.sidebar:
         )
 
     # YouTube Video section with state management
-    st.subheader("📺 YouTube Video (Optional)")
+    st.subheader(":material/live_tv: YouTube Video (Optional)")
     st.text_input(
         "Enter YouTube URL",
         key="youtube_url",
