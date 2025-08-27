@@ -648,7 +648,7 @@ def get_user_prompt(blog_content, transcript_content=None):
 # Set up the Streamlit page
 st.set_page_config(
     page_title="Write Quickstarts",
-    page_icon=":material/input:",
+    page_icon=":material/edit_note:",
     layout="wide"
 )
 
@@ -700,7 +700,7 @@ with st.sidebar:
     )
 
     # Settings section with state management
-    st.subheader("⚙️ Settings")
+    st.subheader(":material/settings: Settings")
     st.selectbox(
         "Select a model",
         ("o1-mini", "gpt-4-turbo", "claude-3-7-sonnet-20250219"),
